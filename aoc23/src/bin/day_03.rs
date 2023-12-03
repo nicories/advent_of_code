@@ -50,7 +50,7 @@ impl PartNumber {
                 .unwrap();
             match c {
                 '.' => {}
-                _ if c.is_digit(10) => {}
+                _ if c.is_ascii_digit() => {}
                 _ => {
                     return true;
                 }
@@ -69,26 +69,24 @@ fn parse_part_numbers_and_gears(input: &str) -> (Vec<PartNumber>, Vec<(usize, us
         for (x, char) in line.chars().enumerate() {
             if let Some(d) = char.to_digit(10) {
                 digit_vec.push(d);
-                if x == line.len() - 1 {
-                    if digit_vec.len() > 0 {
-                        let mut number = 0;
-                        for (i, d) in digit_vec.iter().rev().enumerate() {
-                            number += d * 10_u32.pow(i.try_into().unwrap());
-                        }
-                        v_parts.push(PartNumber {
-                            x_start: x + 1 - digit_vec.len(),
-                            x_end: x,
-                            y,
-                            value: number,
-                        });
-                        digit_vec.clear();
+                if x == line.len() - 1 && !digit_vec.is_empty() {
+                    let mut number = 0;
+                    for (i, d) in digit_vec.iter().rev().enumerate() {
+                        number += d * 10_u32.pow(i.try_into().unwrap());
                     }
+                    v_parts.push(PartNumber {
+                        x_start: x + 1 - digit_vec.len(),
+                        x_end: x,
+                        y,
+                        value: number,
+                    });
+                    digit_vec.clear();
                 }
             } else {
                 if char == '*' {
                     v_gears.push((x, y));
                 }
-                if digit_vec.len() > 0 {
+                if !digit_vec.is_empty() {
                     let mut number = 0;
                     for (i, d) in digit_vec.iter().rev().enumerate() {
                         number += d * 10_u32.pow(i.try_into().unwrap());

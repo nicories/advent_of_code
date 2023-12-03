@@ -1,7 +1,7 @@
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/01_full.txt"));
 
 fn string_to_digit(s: &str) -> Option<u32> {
-    let first = s.chars().nth(0).unwrap();
+    let first = s.chars().next().unwrap();
     if let Some(digit) = first.to_digit(10) {
         return Some(digit);
     }
