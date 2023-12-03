@@ -1,4 +1,4 @@
-const INPUT_FULL: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/01_full.txt"));
+const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/01_full.txt"));
 
 fn string_to_digit(s: &str) -> Option<u32> {
     let first = s.chars().nth(0).unwrap();
@@ -45,14 +45,15 @@ fn part_two(input: &str) -> u32 {
 }
 
 fn part_one(input: &str) -> u32 {
-    input.lines()
+    input
+        .lines()
         .map(|line| line.chars().filter_map(|c| c.to_digit(10)).collect())
-        .map(|v: Vec<u32>| v.first().unwrap()* 10 + v.last().unwrap())
+        .map(|v: Vec<u32>| v.first().unwrap() * 10 + v.last().unwrap())
         .sum()
 }
 fn main() {
-    println!("1: {}", part_one(INPUT_FULL));
-    println!("2: {}", part_two(INPUT_FULL));
+    println!("1: {}", part_one(INPUT));
+    println!("2: {}", part_two(INPUT));
 }
 
 // test
@@ -67,9 +68,9 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(part_one(INPUT_TEST), 142);
-        assert_eq!(part_one(INPUT_FULL), 55029);
+        assert_eq!(part_one(INPUT), 55029);
 
         assert_eq!(part_two(INPUT_TEST2), 281);
-        assert_eq!(part_two(INPUT_FULL), 55686);
+        assert_eq!(part_two(INPUT), 55686);
     }
 }

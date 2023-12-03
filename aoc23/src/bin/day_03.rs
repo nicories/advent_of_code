@@ -60,8 +60,9 @@ impl PartNumber {
     }
 }
 
-fn parse_part_numbers(input: &str) -> Vec<PartNumber> {
-    let mut v = vec![];
+fn parse_part_numbers_and_gears(input: &str) -> (Vec<PartNumber>, Vec<(usize, usize)>) {
+    let mut v_parts = vec![];
+    let mut v_gears = vec![];
     for (y, line) in input.lines().enumerate() {
         let mut digit_vec: Vec<u32> = vec![];
         // this code is awful
@@ -74,25 +75,28 @@ fn parse_part_numbers(input: &str) -> Vec<PartNumber> {
                         for (i, d) in digit_vec.iter().rev().enumerate() {
                             number += d * 10_u32.pow(i.try_into().unwrap());
                         }
-                        v.push(PartNumber {
+                        v_parts.push(PartNumber {
                             x_start: x + 1 - digit_vec.len(),
                             x_end: x,
-                            y: y,
+                            y,
                             value: number,
                         });
                         digit_vec.clear();
                     }
                 }
             } else {
+                if char == '*' {
+                    v_gears.push((x, y));
+                }
                 if digit_vec.len() > 0 {
                     let mut number = 0;
                     for (i, d) in digit_vec.iter().rev().enumerate() {
                         number += d * 10_u32.pow(i.try_into().unwrap());
                     }
-                    v.push(PartNumber {
+                    v_parts.push(PartNumber {
                         x_start: x - digit_vec.len(),
                         x_end: x - 1,
-                        y: y,
+                        y,
                         value: number,
                     });
                     digit_vec.clear();
@@ -100,23 +104,13 @@ fn parse_part_numbers(input: &str) -> Vec<PartNumber> {
             }
         }
     }
-    v
-}
-fn parse_gears(input: &str) -> Vec<(usize, usize)> {
-    let mut v = vec![];
-    for (y, line) in input.lines().enumerate() {
-        for (x, char) in line.chars().enumerate() {
-            if char == '*' {
-                v.push((x, y));
-            }
-        }
-    }
-    v
+    (v_parts, v_gears)
 }
 
 fn part_two(input: &str) -> u32 {
-    let gears = parse_gears(input);
-    let parts = parse_part_numbers(input);
+    let tuple = parse_part_numbers_and_gears(input);
+    let gears = tuple.1;
+    let parts = tuple.0;
     let x_max = input.lines().next().unwrap().len() - 1;
     let y_max = input.lines().count() - 1;
     let mut sum = 0;
@@ -132,7 +126,8 @@ fn part_two(input: &str) -> u32 {
 }
 
 fn part_one(input: &str) -> u32 {
-    parse_part_numbers(input)
+    parse_part_numbers_and_gears(input)
+        .0
         .iter()
         .filter(|part| part.borders_on_symbol(input))
         .map(|part| part.value)
@@ -155,7 +150,7 @@ mod tests {
     #[test]
     fn test() {
         {
-            let parts = parse_part_numbers(INPUT_TEST);
+            let parts = parse_part_numbers_and_gears(INPUT_TEST).0;
             assert_eq!(
                 parts[0].border_coords(
                     INPUT_TEST.lines().next().unwrap().len() - 1,
@@ -169,7 +164,7 @@ mod tests {
             assert_eq!(part_one(INPUT_TEST), 4361);
         }
         {
-            let parts = parse_part_numbers(INPUT_TEST2);
+            let parts = parse_part_numbers_and_gears(INPUT_TEST2).0;
 
             assert_eq!(parts[2].value, 10);
             assert_eq!(parts[5].value, 5);
@@ -186,7 +181,7 @@ mod tests {
             assert_eq!(part_one(INPUT_TEST2), 4361 + 10 + 5);
         }
         {
-            let parts = parse_part_numbers(INPUT);
+            let parts = parse_part_numbers_and_gears(INPUT).0;
             assert!(parts[6].borders_on_symbol(INPUT));
         }
         assert_eq!(part_one(INPUT), 531561);

@@ -1,4 +1,4 @@
-const INPUT_FULL: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/02_full.txt"));
+const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/02_full.txt"));
 
 #[derive(PartialEq, Debug)]
 struct RGB {
@@ -64,8 +64,8 @@ fn part_one(input: &str) -> u32 {
     possible_games.map(|game| game.id).sum()
 }
 fn main() {
-    println!("1: {}", part_one(INPUT_FULL));
-    println!("2: {}", part_two(INPUT_FULL));
+    println!("1: {}", part_one(INPUT));
+    println!("2: {}", part_two(INPUT));
 }
 
 // test
@@ -100,9 +100,9 @@ mod tests {
             ]
         );
         assert_eq!(part_one(INPUT_TEST), 8);
-        assert_eq!(part_one(INPUT_FULL), 2505);
+        assert_eq!(part_one(INPUT), 2505);
 
         assert_eq!(part_two(INPUT_TEST), 2286);
-        assert_eq!(part_two(INPUT_FULL), 70265);
+        assert_eq!(part_two(INPUT), 70265);
     }
 }
