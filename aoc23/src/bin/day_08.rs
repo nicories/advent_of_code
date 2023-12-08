@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/08_full.txt"));
-const START: &str = "AAA";
-const GOAL: &str = "ZZZ";
 
 #[derive(PartialEq, Debug)]
 enum Direction {
@@ -54,9 +52,12 @@ fn parse_pouch(input: &str) -> (Vec<Direction>, HashMap<String, (String, String)
     (directions, map)
 }
 
-fn part_two(input: &str) -> u64 {
+fn count_steps(input: &str, start_pattern: &str, end_pattern: &str) -> u64 {
     let (directions, map) = parse_pouch(input);
-    let start_keys: Vec<&String> = map.keys().filter(|key| key.ends_with('A')).collect();
+    let start_keys: Vec<&String> = map
+        .keys()
+        .filter(|key| key.ends_with(start_pattern))
+        .collect();
     let mut loops: Vec<u64> = vec![];
     for start in start_keys {
         let mut steps = 0;
@@ -70,7 +71,7 @@ fn part_two(input: &str) -> u64 {
                 &map.get(current).unwrap().1
             };
             steps += 1;
-            if current.ends_with('Z') {
+            if current.ends_with(end_pattern) {
                 break;
             }
         }
@@ -79,26 +80,12 @@ fn part_two(input: &str) -> u64 {
     lcm(&loops)
 }
 
-fn part_one(input: &str) -> u32 {
-    let (directions, map) = parse_pouch(input);
-    let mut directions = directions.iter().cycle();
-    let mut start = map.get(START).unwrap();
-    let mut steps = 0;
-    loop {
-        let next_key = if directions.next().unwrap() == &Direction::Left {
-            &start.0
-        } else {
-            &start.1
-        };
-        steps += 1;
-        if next_key == GOAL {
-            break;
-        } else {
-            start = map.get(next_key).unwrap();
-        }
-    }
+fn part_two(input: &str) -> u64 {
+    count_steps(input, "A", "Z")
+}
 
-    steps
+fn part_one(input: &str) -> u64 {
+    count_steps(input, "AAA", "ZZZ")
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
