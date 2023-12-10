@@ -1,3 +1,5 @@
+#![feature(iter_map_windows)]
+
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/09_full.txt"));
 
 fn parse_sensor_data(input: &str) -> Vec<Vec<i32>> {
@@ -16,16 +18,16 @@ fn extrapolate_data(data: &Vec<Vec<i32>>) -> Vec<Vec<Vec<i32>>> {
         let mut history = vec![];
         history.push(d.to_owned());
         loop {
-            let mut differences = vec![];
-            let target = history.last().unwrap();
-            for i in 0..target.len() - 1 {
-                differences.push(target[i + 1] - target[i]);
-            }
-            if !differences.iter().any(|d| *d != 0) {
-                history.push(differences);
+            let differences: Vec<i32> = history
+                .last()
+                .unwrap()
+                .iter()
+                .map_windows(|[a, b]| **b - **a)
+                .collect();
+            history.push(differences);
+            if !history.last().unwrap().iter().any(|d| *d != 0) {
                 break;
             }
-            history.push(differences);
         }
         v.push(history);
     }
