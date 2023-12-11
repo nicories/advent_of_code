@@ -1,8 +1,8 @@
-#![feature(iter_map_windows)]
+// the part 2 solution is simply awful but couldn't think of anything better
 
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/10_full.txt"));
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum Tile {
     PipeVertical,
     PipeHorizontal,
@@ -33,18 +33,21 @@ impl Tile {
 struct Grid {
     // y -> x
     positions: Vec<Vec<Tile>>,
+    start_position: (usize, usize),
 }
 impl Grid {
     fn tile_at(&self, pos: &(usize, usize)) -> Tile {
-        self.positions[pos.1][pos.0]
+        if pos == &self.start_position {
+            Tile::PipeSouthWest
+        } else {
+            self.positions[pos.1][pos.0]
+        }
     }
-    pub fn ground_positions(&self) -> Vec<(usize, usize)> {
+    pub fn all_positions(&self) -> Vec<(usize, usize)> {
         let mut v = vec![];
         for y in 0..self.positions.len() {
             for x in 0..self.positions[y].len() {
-                if matches!(self.tile_at(&(x, y)), Tile::Ground) {
-                    v.push((x, y));
-                }
+                v.push((x, y));
             }
         }
         v
@@ -55,19 +58,23 @@ impl Grid {
             .rev()
             .map(|line| line.chars().map(|c| Tile::from_c(&c)).collect())
             .collect();
-        Self { positions }
+        let start_position = Grid::start_position(&positions);
+        Self {
+            positions,
+            start_position,
+        }
     }
     pub fn main_loop_positions(&self) -> Vec<(usize, usize)> {
         let mut positions = vec![];
-        let start = self.start_position();
-        positions.push(start.clone());
+        let start = self.start_position;
+        positions.push(start);
         loop {
             let current = *positions.last().unwrap();
             let current_tile = self.tile_at(&current);
             let last = if positions.len() >= 2 {
                 *positions.get(positions.len() - 2).unwrap()
             } else {
-                current.clone()
+                current
             };
             let next = match current_tile {
                 Tile::PipeVertical => {
@@ -122,9 +129,12 @@ impl Grid {
                         self.tile_at(&(current.0 - 1, current.1))
                     };
                     let tile_right = self.tile_at(&(current.0 + 1, current.1));
-                    let tile_up = self.tile_at(&(current.0, current.1 + 1));
-                    // let tile_down = self.tile_at(&(current.0, current.1 - 1));
-                    let n = if matches!(
+                    let tile_up = if current.1 == self.positions.len() - 1 {
+                        Tile::Ground
+                    } else {
+                        self.tile_at(&(current.0, current.1 + 1))
+                    };
+                    if matches!(
                         tile_left,
                         Tile::PipeHorizontal | Tile::PipeNorthEast | Tile::PipeSouthEast
                     ) {
@@ -141,8 +151,7 @@ impl Grid {
                         (current.0, current.1 + 1)
                     } else {
                         (current.0, current.1 - 1)
-                    };
-                    n
+                    }
                 }
             };
             if next == start {
@@ -152,10 +161,10 @@ impl Grid {
         }
         positions
     }
-    pub fn start_position(&self) -> (usize, usize) {
-        for y in 0..self.positions.len() {
-            for x in 0..self.positions[0].len() {
-                if matches!(self.positions[y][x], Tile::Start) {
+    fn start_position(positions: &Vec<Vec<Tile>>) -> (usize, usize) {
+        for y in 0..positions.len() {
+            for x in 0..positions[0].len() {
+                if matches!(positions[y][x], Tile::Start) {
                     return (x, y);
                 }
             }
@@ -164,16 +173,79 @@ impl Grid {
     }
 }
 
+fn count_tiles(tiles: &[Tile], tile_type: Tile) -> usize {
+    tiles.iter().filter(|tile| **tile == tile_type).count()
+}
+
 fn part_two(input: &str) -> usize {
     let grid = Grid::parse_grid(input);
     let main_loop = grid.main_loop_positions();
     let mut sum = 0;
-    let grounds = grid.ground_positions();
-    for ground in grounds {
+    let grounds = grid.all_positions();
+    let grounds_all: Vec<&(usize, usize)> = grounds
+        .iter()
+        .filter(|pos| !main_loop.contains(pos))
+        .collect();
+    let mut grounds_inside = vec![];
+    for ground in grounds_all {
         if main_loop.iter().any(|x| x.0 == ground.0 && x.1 < ground.1) // down check
             && main_loop.iter().any(|x| x.0 == ground.0 && x.1 > ground.1) // up check
             && main_loop.iter().any(|x| x.0 < ground.0 && x.1 == ground.1) // left check
-            && main_loop.iter().any(|x| x.0 > ground.0 && x.1 == ground.1) // right check
+            && main_loop.iter().any(|x| x.0 > ground.0 && x.1 == ground.1)
+        // right check
+        {
+            grounds_inside.push(ground);
+        }
+    }
+    for ground in grounds_inside {
+        let left_tiles: Vec<Tile> = main_loop
+            .iter()
+            .filter(|x| x.0 < ground.0 && x.1 == ground.1)
+            .map(|x| grid.tile_at(x))
+            .collect();
+        let up_tiles: Vec<Tile> = main_loop
+            .iter()
+            .filter(|x| x.0 == ground.0 && x.1 > ground.1)
+            .map(|x| grid.tile_at(x))
+            .collect();
+        let down_tiles: Vec<Tile> = main_loop
+            .iter()
+            .filter(|x| x.0 == ground.0 && x.1 < ground.1)
+            .map(|x| grid.tile_at(x))
+            .collect();
+        let right_tiles: Vec<Tile> = main_loop
+            .iter()
+            .filter(|x| x.0 > ground.0 && x.1 == ground.1)
+            .map(|x| grid.tile_at(x))
+            .collect();
+        let left_accross = count_tiles(&left_tiles, Tile::PipeVertical)
+            + count_tiles(&left_tiles, Tile::PipeNorthEast)
+                .min(count_tiles(&left_tiles, Tile::PipeSouthWest))
+            + count_tiles(&left_tiles, Tile::PipeNorthWest)
+                .min(count_tiles(&left_tiles, Tile::PipeSouthEast));
+
+        let right_accross = count_tiles(&right_tiles, Tile::PipeVertical)
+            + count_tiles(&right_tiles, Tile::PipeNorthEast)
+                .min(count_tiles(&right_tiles, Tile::PipeSouthWest))
+            + count_tiles(&right_tiles, Tile::PipeNorthWest)
+                .min(count_tiles(&right_tiles, Tile::PipeSouthEast));
+
+        let up_accross = count_tiles(&up_tiles, Tile::PipeHorizontal)
+            + count_tiles(&up_tiles, Tile::PipeNorthEast)
+                .min(count_tiles(&up_tiles, Tile::PipeSouthWest))
+            + count_tiles(&up_tiles, Tile::PipeNorthWest)
+                .min(count_tiles(&up_tiles, Tile::PipeSouthEast));
+
+        let down_accross = count_tiles(&down_tiles, Tile::PipeHorizontal)
+            + count_tiles(&down_tiles, Tile::PipeNorthEast)
+                .min(count_tiles(&down_tiles, Tile::PipeSouthWest))
+            + count_tiles(&down_tiles, Tile::PipeNorthWest)
+                .min(count_tiles(&down_tiles, Tile::PipeSouthEast));
+
+        if left_accross % 2 == 1
+            && right_accross % 2 == 1
+            && up_accross % 2 == 1
+            && down_accross % 2 == 1
         {
             sum += 1;
         }
@@ -205,26 +277,29 @@ mod tests {
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/10_test3b.txt"));
     const INPUT_TEST4: &str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/10_test4.txt"));
+    const INPUT_TEST5: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/10_test5.txt"));
 
     #[test]
     fn test() {
         {
             let grid = Grid::parse_grid(INPUT_TEST);
-            assert_eq!(grid.start_position(), (1, 3));
+            assert_eq!(grid.start_position, (1, 3));
             let main_loop = grid.main_loop_positions();
             assert_eq!(main_loop.len(), 8);
             assert_eq!(part_one(INPUT_TEST), 4);
         }
         {
             let grid = Grid::parse_grid(INPUT_TEST2);
-            assert_eq!(grid.start_position(), (0, 2));
+            assert_eq!(grid.start_position, (0, 2));
             assert_eq!(part_one(INPUT_TEST2), 8);
         }
         assert_eq!(part_one(INPUT), 6768);
 
         assert_eq!(part_two(INPUT_TEST3), 4);
         assert_eq!(part_two(INPUT_TEST3B), 4);
-        assert_eq!(part_two(INPUT_TEST4), 10);
-        // assert_eq!(part_two(INPUT), 1152);
+        assert_eq!(part_two(INPUT_TEST4), 8);
+        assert_eq!(part_two(INPUT_TEST5), 10);
+        assert_eq!(part_two(INPUT), 351);
     }
 }
