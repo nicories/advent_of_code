@@ -4,16 +4,6 @@ const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/11_
 
 type Position = (usize, usize);
 
-fn pairs_from_vec(galaxies: &Vec<Position>) -> Vec<(Position, Position)> {
-    let mut v = vec![];
-    for (i, a) in galaxies.iter().enumerate() {
-        for b in &galaxies[i + 1..] {
-            v.push((a.clone(), b.clone()));
-        }
-    }
-    v
-}
-
 #[derive(Debug, PartialEq, Clone)]
 enum Tile {
     Galaxy,
@@ -30,46 +20,43 @@ impl Tile {
 }
 #[derive(Debug)]
 struct Universe {
-    space: Vec<Vec<Tile>>,
+    original_space: Vec<Vec<Tile>>,
+    galaxy_locations: Vec<Position>,
 }
 impl Universe {
     pub fn parse(input: &str) -> Self {
-        let space = input
+        let space: Vec<Vec<Tile>> = input
             .lines()
             .rev()
             .map(|line| line.chars().map(|c| Tile::from_c(&c)).collect())
             .collect();
-        Self { space }
-    }
-    pub fn galaxy_locations(&self) -> Vec<(usize, usize)> {
-        let mut v = vec![];
-        for (y, row) in self.space.iter().enumerate() {
+        let mut galaxy_locations = vec![];
+        for (y, row) in space.iter().enumerate() {
             for (x, tile) in row.iter().enumerate() {
                 if matches!(tile, Tile::Galaxy) {
-                    v.push((x, y));
+                    galaxy_locations.push((x, y));
                 }
             }
         }
-        v
+        Self {
+            original_space: space,
+            galaxy_locations,
+        }
     }
-    pub fn expand(&mut self) {
+    pub fn expand(&mut self, factor: usize) {
         // rows
-        let mut row_indices: Vec<usize> = vec![];
-        for (row_index, row) in self.space.iter().enumerate() {
-            if !row.contains(&Tile::Galaxy) {
-                row_indices.push(row_index);
-            }
-        }
-        for (i, index) in row_indices.iter().enumerate() {
-            let new_row = self.space[i + index].to_vec();
-            self.space.insert(i + index, new_row);
-        }
+        let row_indices: Vec<usize> = self
+            .original_space
+            .iter()
+            .enumerate()
+            .filter_map(|(i, row)| (!row.contains(&Tile::Galaxy)).then_some(i))
+            .collect();
         // columns
         let mut column_indices: Vec<usize> = vec![];
-        for column_index in 0..self.space[0].len() {
+        for column_index in 0..self.original_space[0].len() {
             let mut no_galaxy = true;
-            for row_index in 0..self.space.len() {
-                if matches!(self.space[row_index][column_index], Tile::Galaxy) {
+            for row_index in 0..self.original_space.len() {
+                if matches!(self.original_space[row_index][column_index], Tile::Galaxy) {
                     no_galaxy = false;
                     break;
                 }
@@ -78,27 +65,46 @@ impl Universe {
                 column_indices.push(column_index);
             }
         }
-        for (i, index) in column_indices.iter().enumerate() {
-            for row in &mut self.space {
-                row.insert(index + i, Tile::Empty);
+        for galaxy in &mut self.galaxy_locations {
+            let x_offset = column_indices
+                .iter()
+                .filter(|index| **index < galaxy.0)
+                .count();
+            let y_offset = row_indices
+                .iter()
+                .filter(|index| **index < galaxy.1)
+                .count();
+            galaxy.0 += x_offset * (factor - 1);
+            galaxy.1 += y_offset * (factor - 1);
+        }
+    }
+    fn galaxy_pairs(&self) -> Vec<(Position, Position)> {
+        let mut pairs = vec![];
+        for (i, a) in self.galaxy_locations.iter().enumerate() {
+            for b in &self.galaxy_locations[i + 1..] {
+                pairs.push((*a, *b));
             }
         }
+        pairs
     }
 }
 
-fn part_two(input: &str) -> usize {
-    0
-}
-
-fn part_one(input: &str) -> usize {
+fn galaxy_paths(input: &str, factor: usize) -> usize {
     let mut universe = Universe::parse(input);
-    universe.expand();
-    let galaxies = universe.galaxy_locations();
-    let pairs = pairs_from_vec(&galaxies);
-    pairs
+    universe.expand(factor);
+    universe
+        .galaxy_pairs()
         .iter()
         .map(|pair| pair.0 .0.abs_diff(pair.1 .0) + pair.0 .1.abs_diff(pair.1 .1))
         .sum()
+}
+
+fn part_two(input: &str) -> usize {
+    galaxy_paths(input, 1_000_000)
+}
+
+fn part_one(input: &str) -> usize {
+    galaxy_paths(input, 2)
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -114,25 +120,10 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut universe = Universe::parse(INPUT_TEST);
-        assert_eq!(universe.galaxy_locations().len(), 9);
-        assert_eq!(universe.space.len(), 10);
-        for row in &universe.space {
-            assert_eq!(row.len(), 10);
-        }
-
-        universe.expand();
-        assert_eq!(universe.space.len(), 12);
-        for row in &universe.space {
-            assert_eq!(row.len(), 13);
-        }
-        let galaxies = universe.galaxy_locations();
-        assert_eq!(galaxies.len(), 9);
-        let pairs = pairs_from_vec(&galaxies);
-
-        assert_eq!(pairs.len(), 36);
         assert_eq!(part_one(INPUT_TEST), 374);
-        // assert_eq!(part_one(INPUT), 6768);
-        // assert_eq!(part_two(INPUT), 351);
+        assert_eq!(part_one(INPUT), 9647174);
+        assert_eq!(galaxy_paths(INPUT_TEST, 10), 1030);
+        assert_eq!(galaxy_paths(INPUT_TEST, 100), 8410);
+        assert_eq!(part_two(INPUT), 377318892554);
     }
 }
