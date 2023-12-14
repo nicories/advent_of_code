@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/14_full.txt"));
 
 struct Dish {
@@ -7,6 +9,17 @@ impl Dish {
     pub fn parse(input: &str) -> Self {
         let grid = input.lines().map(|line| line.chars().collect()).collect();
         Dish { grid }
+    }
+    pub fn rotate(&mut self) {
+        let mut new_grid = vec![];
+        for x in 0..self.grid[0].len() {
+            let mut new_line = vec![];
+            for y in (0..self.grid.len()).rev() {
+                new_line.push(self.grid[y][x]);
+            }
+            new_grid.push(new_line);
+        }
+        self.grid = new_grid;
     }
     pub fn tilt_north(&mut self) {
         for y in 1..self.grid.len() {
@@ -33,7 +46,28 @@ impl Dish {
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    let mut dish = Dish::parse(input);
+    let mut map: HashMap<Vec<Vec<char>>, usize> = HashMap::new();
+    let repeat = 1000000000;
+    for i in 0..repeat {
+        for _ in 0..4 {
+            dish.tilt_north();
+            dish.rotate();
+        }
+        if let Some(last_i) = map.get(&dish.grid) {
+            let loop_size = i - last_i;
+            let remaining_loops = (repeat - i) % loop_size - 1;
+            for _ in 0..remaining_loops {
+                for _ in 0..4 {
+                    dish.tilt_north();
+                    dish.rotate();
+                }
+            }
+            return dish.calculate_load();
+        }
+        map.insert(dish.grid.to_vec(), i);
+    }
+    panic!("at the disco");
 }
 
 fn part_one(input: &str) -> usize {
@@ -56,14 +90,20 @@ mod tests {
     #[test]
     fn test() {
         let mut dish = Dish::parse(INPUT_TEST);
-        assert_eq!(String::from(dish.grid[0].iter().collect::<String>()), "O....#....");
+        assert_eq!(
+            String::from(dish.grid[0].iter().collect::<String>()),
+            "O....#...."
+        );
         dish.tilt_north();
-        assert_eq!(String::from(dish.grid[0].iter().collect::<String>()), "OOOO.#.O..");
+        assert_eq!(
+            String::from(dish.grid[0].iter().collect::<String>()),
+            "OOOO.#.O.."
+        );
 
         assert_eq!(part_one(INPUT_TEST), 136);
         assert_eq!(part_one(INPUT), 109661);
 
-        // assert_eq!(part_two(INPUT_TEST), 400);
-        // assert_eq!(part_two(INPUT), 22906);
+        assert_eq!(part_two(INPUT_TEST), 64);
+        assert_eq!(part_two(INPUT), 90176);
     }
 }
