@@ -47,23 +47,27 @@ fn light_path(
             ('|', Direction::Down | Direction::Up) => current_dir,
             ('-', Direction::Left | Direction::Right) => current_dir,
             ('|', _) => {
-                v.append(&mut light_path(
-                    grid,
-                    current_position.0,
-                    current_position.1 + 1,
-                    Direction::Down,
-                    map,
-                ));
+                if current_position.1 != grid.len() - 1 {
+                    v.append(&mut light_path(
+                        grid,
+                        current_position.0,
+                        current_position.1 + 1,
+                        Direction::Down,
+                        map,
+                    ));
+                }
                 Direction::Up
             }
             ('-', _) => {
-                v.append(&mut light_path(
-                    grid,
-                    current_position.0 - 1,
-                    current_position.1,
-                    Direction::Left,
-                    map,
-                ));
+                if current_position.0 != 0 {
+                    v.append(&mut light_path(
+                        grid,
+                        current_position.0 - 1,
+                        current_position.1,
+                        Direction::Left,
+                        map,
+                    ));
+                }
                 Direction::Right
             }
             ('/', Direction::Right) => Direction::Up,
@@ -95,18 +99,37 @@ fn light_path(
     }
 }
 
-fn part_two(input: &str) -> usize {
-    0
-}
-
-fn part_one(input: &str) -> usize {
+fn count_energized(input: &str, startx: usize, starty: usize, dir: Direction) -> usize {
     let grid: Grid = input.lines().map(|line| line.chars().collect()).collect();
     let mut map = HashMap::new();
-    let path = light_path(&grid, 0, 0, Direction::Right, &mut map);
+    light_path(&grid, startx, starty, dir, &mut map);
     let mut values: Vec<(usize, usize)> = map.values().cloned().collect();
     values.sort();
     values.dedup();
     values.len()
+}
+
+fn part_two(input: &str) -> usize {
+    let mut counts = vec![];
+    let grid: Grid = input.lines().map(|line| line.chars().collect()).collect();
+    for x in 0..grid[0].len() {
+        counts.push(count_energized(input, x, 0, Direction::Down));
+        counts.push(count_energized(input, x, grid.len() - 1, Direction::Up));
+    }
+    for y in 0..grid.len() {
+        counts.push(count_energized(input, 0, y, Direction::Right));
+        counts.push(count_energized(
+            input,
+            grid[0].len() - 1,
+            y,
+            Direction::Left,
+        ));
+    }
+    *counts.iter().max().unwrap()
+}
+
+fn part_one(input: &str) -> usize {
+    count_energized(input, 0, 0, Direction::Right)
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -125,7 +148,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 46);
         assert_eq!(part_one(INPUT), 6921);
 
-        // assert_eq!(part_two(INPUT_TEST), 145);
+        assert_eq!(part_two(INPUT_TEST), 51);
         // assert_eq!(part_two(INPUT), 244199);
     }
 }
