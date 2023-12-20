@@ -130,7 +130,7 @@ fn parse(input: &str) -> (Vec<Part>, HashMap<String, Vec<Rule>>) {
                 .map(|entry| entry.split_once('=').unwrap().1.parse().unwrap())
                 .collect();
             let x = v[0];
-            let m= v[1];
+            let m = v[1];
             let a = v[2];
             let s = v[3];
             Part { x, m, a, s }
@@ -141,61 +141,74 @@ fn parse(input: &str) -> (Vec<Part>, HashMap<String, Vec<Rule>>) {
 
 #[derive(Debug)]
 struct AcceptedRange {
-    x_low: usize,
-    x_high: usize,
-    m_low: usize,
-    m_high: usize,
-    a_low: usize,
-    a_high: usize,
-    s_low: usize,
-    s_high: usize,
+    x: Range<usize>,
+    m: Range<usize>,
+    a: Range<usize>,
+    s: Range<usize>,
 }
 
 impl Default for AcceptedRange {
     fn default() -> Self {
         Self {
-            x_low: 1,
-            x_high: 4000,
-            m_low: 1,
-            m_high: 4000,
-            a_low: 1,
-            a_high: 4000,
-            s_low: 1,
-            s_high: 4000,
+            x: Range {
+                start: 1,
+                end: 4001,
+            },
+            m: Range {
+                start: 1,
+                end: 4001,
+            },
+            a: Range {
+                start: 1,
+                end: 4001,
+            },
+            s: Range {
+                start: 1,
+                end: 4001,
+            },
         }
     }
 }
 // to dodge the condition
 fn fix_range_negative(range: &mut AcceptedRange, condition: &Condition) {
     match (condition.operand_a.as_str(), &condition.operator) {
-        ("x", ConditionOp::GreaterThan) => range.x_high = range.x_high.min(condition.operand_b),
-        ("m", ConditionOp::GreaterThan) => range.m_high = range.m_high.min(condition.operand_b),
-        ("a", ConditionOp::GreaterThan) => range.a_high = range.a_high.min(condition.operand_b),
-        ("s", ConditionOp::GreaterThan) => range.s_high = range.s_high.min(condition.operand_b),
+        ("x", ConditionOp::GreaterThan) => range.x.end = range.x.end.min(condition.operand_b + 1),
+        ("m", ConditionOp::GreaterThan) => range.m.end = range.m.end.min(condition.operand_b + 1),
+        ("a", ConditionOp::GreaterThan) => range.a.end = range.a.end.min(condition.operand_b + 1),
+        ("s", ConditionOp::GreaterThan) => range.s.end = range.s.end.min(condition.operand_b + 1),
 
-        ("x", ConditionOp::LessThan) => range.x_low = range.x_low.max(condition.operand_b),
-        ("m", ConditionOp::LessThan) => range.m_low = range.m_low.max(condition.operand_b),
-        ("a", ConditionOp::LessThan) => range.a_low = range.a_low.max(condition.operand_b),
-        ("s", ConditionOp::LessThan) => range.s_low = range.s_low.max(condition.operand_b),
+        ("x", ConditionOp::LessThan) => range.x.start = range.x.start.max(condition.operand_b),
+        ("m", ConditionOp::LessThan) => range.m.start = range.m.start.max(condition.operand_b),
+        ("a", ConditionOp::LessThan) => range.a.start = range.a.start.max(condition.operand_b),
+        ("s", ConditionOp::LessThan) => range.s.start = range.s.start.max(condition.operand_b),
         _ => panic!("at the disco"),
     }
 }
 // to fulfill the condition
 fn fix_range_positive(range: &mut AcceptedRange, condition: &Condition) {
     match (condition.operand_a.as_str(), &condition.operator) {
-        ("x", ConditionOp::GreaterThan) => range.x_low = range.x_low.max(condition.operand_b + 1),
-        ("m", ConditionOp::GreaterThan) => range.m_low = range.m_low.max(condition.operand_b + 1),
-        ("a", ConditionOp::GreaterThan) => range.a_low = range.a_low.max(condition.operand_b + 1),
-        ("s", ConditionOp::GreaterThan) => range.s_low = range.s_low.max(condition.operand_b + 1),
+        ("x", ConditionOp::GreaterThan) => {
+            range.x.start = range.x.start.max(condition.operand_b + 1)
+        }
+        ("m", ConditionOp::GreaterThan) => {
+            range.m.start = range.m.start.max(condition.operand_b + 1)
+        }
+        ("a", ConditionOp::GreaterThan) => {
+            range.a.start = range.a.start.max(condition.operand_b + 1)
+        }
+        ("s", ConditionOp::GreaterThan) => {
+            range.s.start = range.s.start.max(condition.operand_b + 1)
+        }
 
-        ("x", ConditionOp::LessThan) => range.x_high = range.x_high.min(condition.operand_b - 1),
-        ("m", ConditionOp::LessThan) => range.m_high = range.m_high.min(condition.operand_b - 1),
-        ("a", ConditionOp::LessThan) => range.a_high = range.a_high.min(condition.operand_b - 1),
-        ("s", ConditionOp::LessThan) => range.s_high = range.s_high.min(condition.operand_b - 1),
+        ("x", ConditionOp::LessThan) => range.x.end = range.x.end.min(condition.operand_b),
+        ("m", ConditionOp::LessThan) => range.m.end = range.m.end.min(condition.operand_b),
+        ("a", ConditionOp::LessThan) => range.a.end = range.a.end.min(condition.operand_b),
+        ("s", ConditionOp::LessThan) => range.s.end = range.s.end.min(condition.operand_b),
         _ => panic!("at the disco"),
     }
 }
 fn part_two(input: &str) -> usize {
+    // messy code but works somehow
     let (_, workflows) = parse(input);
     let mut ranges: Vec<AcceptedRange> = vec![];
     for workflow in &workflows {
@@ -261,12 +274,7 @@ fn part_two(input: &str) -> usize {
     }
     ranges
         .iter()
-        .map(|range| {
-            (range.x_high - range.x_low + 1)
-                * (range.m_high - range.m_low + 1)
-                * (range.a_high - range.a_low + 1)
-                * (range.s_high - range.s_low + 1)
-        })
+        .map(|range| range.x.len() * range.m.len() * range.a.len() * range.s.len())
         .sum()
 }
 
