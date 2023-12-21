@@ -35,11 +35,7 @@ impl Conjunction {
     pub fn process_pulse(&mut self, pulse: &Pulse) -> Vec<Pulse> {
         assert!(self.history.contains_key(&pulse.source));
         self.history.insert(pulse.source.clone(), pulse.state);
-        let pulse_state = if self.history.values().all(|state| *state == true) {
-            false
-        } else {
-            true
-        };
+        let pulse_state = !self.history.values().all(|state| *state);
         self.targets
             .iter()
             .map(|target| Pulse {
@@ -101,7 +97,7 @@ fn parse(
     for i in 0..conjunctions.values().len() {
         let mut map = HashMap::new();
         let name = &conjunctions.values().nth(i).unwrap().name.clone();
-        for (j, con) in conjunctions.iter().enumerate() {
+        for con in &conjunctions {
             if con.1.targets.contains(name) {
                 map.insert(con.1.name.clone(), false);
             }
@@ -118,84 +114,21 @@ fn parse(
     (broadcaster.unwrap(), flipflops, conjunctions)
 }
 
-fn rx_button_presses(input: &str) -> Vec<HashMap<String, (bool, usize)>> {
-    let (broadcaster, mut flipflops, mut conjunctions) = parse(input);
+fn simulate_button_presses(
+    maximum_presses: usize,
+    broadcaster: Vec<String>,
+    mut flipflops: HashMap<String, FlipFlop>,
+    mut conjunctions: HashMap<String, Conjunction>,
+    observed_shift_registers: &mut Vec<HashMap<String, (bool, usize)>>,
+) -> (usize, usize) {
     let mut pulse_queue: VecDeque<Pulse> = VecDeque::new();
     let mut current_press = 0;
-    let mut observed_shift_registers: Vec<HashMap<String, (bool, usize)>> = vec![];
-    for ancestor in &conjunctions.get("dt").unwrap().history {
-        let mut target_level = true;
-        let mut con = conjunctions.get(ancestor.0).unwrap();
-        while con.history.len() == 1 {
-            target_level = !target_level;
-            con = conjunctions
-                .get(con.history.keys().nth(0).unwrap())
-                .unwrap();
-        }
-        let mut map = HashMap::new();
-        for f in &con.history {
-            map.insert(f.0.to_string(), (false, 0));
-        }
-        observed_shift_registers.push(map);
-    }
-    loop {
-        current_press += 1;
-        for target in &broadcaster {
-            pulse_queue.push_back(Pulse {
-                source: "broadcaster".to_string(),
-                state: false,
-                target: target.clone(),
-            });
-        }
-        while let Some(pulse) = pulse_queue.pop_front() {
-            // process pulse
-            if let Some(flipflop) = flipflops.get_mut(&pulse.target) {
-                for pulse in flipflop.process_pulse(&pulse) {
-                    pulse_queue.push_back(pulse);
-                }
-            }
-            if let Some(conjunction) = conjunctions.get_mut(&pulse.target) {
-                for pulse in conjunction.process_pulse(&pulse) {
-                    pulse_queue.push_back(pulse);
-                }
-            }
-            // part 2 stuff
-            for register in &mut observed_shift_registers {
-                for f in register {
-                    if f.1 .0 == false && flipflops.get(f.0).unwrap().state == true {
-                        f.1 .0 = true;
-                        f.1 .1 = current_press;
-                    }
-                }
-            }
-
-            if observed_shift_registers
-                .iter()
-                .all(|r| r.iter().all(|f| f.1 .0 == true))
-            {
-                return observed_shift_registers;
-            }
-        }
-    }
-}
-
-fn part_two(input: &str) -> usize {
-    let presses = rx_button_presses(input);
-    presses
-        .iter()
-        .map(|entry| entry.values().map(|v| v.1).sum::<usize>())
-        .product()
-}
-
-fn part_one(input: &str) -> usize {
-    let (broadcaster, mut flipflops, mut conjunctions) = parse(input);
-    let mut pulse_queue: VecDeque<Pulse> = VecDeque::new();
     let mut low_sum = 0;
     let mut high_sum = 0;
-    for i in 0..1000 {
-        // button to broadcaster
+    loop {
+        current_press += 1;
+        // count the low signal from button to broadcaster
         low_sum += 1;
-
         for target in &broadcaster {
             pulse_queue.push_back(Pulse {
                 source: "broadcaster".to_string(),
@@ -209,6 +142,7 @@ fn part_one(input: &str) -> usize {
             } else {
                 low_sum += 1;
             }
+            // process pulse
             if let Some(flipflop) = flipflops.get_mut(&pulse.target) {
                 for pulse in flipflop.process_pulse(&pulse) {
                     pulse_queue.push_back(pulse);
@@ -219,10 +153,72 @@ fn part_one(input: &str) -> usize {
                     pulse_queue.push_back(pulse);
                 }
             }
+            // part 2 stuff
+            for register in &mut *observed_shift_registers {
+                for f in register {
+                    if !f.1 .0 && flipflops.get(f.0).unwrap().state {
+                        f.1 .0 = true;
+                        f.1 .1 = current_press;
+                    }
+                }
+            }
+
+            // it's empty for part one
+            if !observed_shift_registers.is_empty()
+                && observed_shift_registers
+                    .iter()
+                    .all(|r| r.iter().all(|f| f.1 .0))
+            {
+                return (low_sum, high_sum);
+            }
+        }
+        if current_press == maximum_presses {
+            return (low_sum, high_sum);
         }
     }
+}
 
-    low_sum * high_sum
+fn part_two(input: &str) -> usize {
+    let (broadcaster, flipflops, conjunctions) = parse(input);
+    let mut observed_shift_registers: Vec<HashMap<String, (bool, usize)>> = vec![];
+    let name_before_rx = &conjunctions
+        .values()
+        .find(|c| c.targets.contains(&"rx".to_string()))
+        .unwrap()
+        .name;
+    for ancestor in &conjunctions.get(name_before_rx).unwrap().history {
+        let mut target_level = true;
+        let mut con = conjunctions.get(ancestor.0).unwrap();
+        while con.history.len() == 1 {
+            target_level = !target_level;
+            con = conjunctions
+                .get(con.history.keys().next().unwrap())
+                .unwrap();
+        }
+        let mut map = HashMap::new();
+        for f in &con.history {
+            map.insert(f.0.to_string(), (false, 0));
+        }
+        observed_shift_registers.push(map);
+    }
+    simulate_button_presses(
+        usize::MAX,
+        broadcaster,
+        flipflops,
+        conjunctions,
+        &mut observed_shift_registers,
+    );
+    observed_shift_registers
+        .iter()
+        .map(|entry| entry.values().map(|v| v.1).sum::<usize>())
+        .product()
+}
+
+fn part_one(input: &str) -> usize {
+    let (broadcaster, flipflops, conjunctions) = parse(input);
+    let (low, high) =
+        simulate_button_presses(1000, broadcaster, flipflops, conjunctions, &mut vec![]);
+    low * high
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
