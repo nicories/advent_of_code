@@ -118,8 +118,73 @@ fn parse(
     (broadcaster.unwrap(), flipflops, conjunctions)
 }
 
+fn rx_button_presses(input: &str) -> Vec<HashMap<String, (bool, usize)>> {
+    let (broadcaster, mut flipflops, mut conjunctions) = parse(input);
+    let mut pulse_queue: VecDeque<Pulse> = VecDeque::new();
+    let mut current_press = 0;
+    let mut observed_shift_registers: Vec<HashMap<String, (bool, usize)>> = vec![];
+    for ancestor in &conjunctions.get("dt").unwrap().history {
+        let mut target_level = true;
+        let mut con = conjunctions.get(ancestor.0).unwrap();
+        while con.history.len() == 1 {
+            target_level = !target_level;
+            con = conjunctions
+                .get(con.history.keys().nth(0).unwrap())
+                .unwrap();
+        }
+        let mut map = HashMap::new();
+        for f in &con.history {
+            map.insert(f.0.to_string(), (false, 0));
+        }
+        observed_shift_registers.push(map);
+    }
+    loop {
+        current_press += 1;
+        for target in &broadcaster {
+            pulse_queue.push_back(Pulse {
+                source: "broadcaster".to_string(),
+                state: false,
+                target: target.clone(),
+            });
+        }
+        while let Some(pulse) = pulse_queue.pop_front() {
+            // process pulse
+            if let Some(flipflop) = flipflops.get_mut(&pulse.target) {
+                for pulse in flipflop.process_pulse(&pulse) {
+                    pulse_queue.push_back(pulse);
+                }
+            }
+            if let Some(conjunction) = conjunctions.get_mut(&pulse.target) {
+                for pulse in conjunction.process_pulse(&pulse) {
+                    pulse_queue.push_back(pulse);
+                }
+            }
+            // part 2 stuff
+            for register in &mut observed_shift_registers {
+                for f in register {
+                    if f.1 .0 == false && flipflops.get(f.0).unwrap().state == true {
+                        f.1 .0 = true;
+                        f.1 .1 = current_press;
+                    }
+                }
+            }
+
+            if observed_shift_registers
+                .iter()
+                .all(|r| r.iter().all(|f| f.1 .0 == true))
+            {
+                return observed_shift_registers;
+            }
+        }
+    }
+}
+
 fn part_two(input: &str) -> usize {
-    0
+    let presses = rx_button_presses(input);
+    presses
+        .iter()
+        .map(|entry| entry.values().map(|v| v.1).sum::<usize>())
+        .product()
 }
 
 fn part_one(input: &str) -> usize {
@@ -179,7 +244,6 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST2), 11687500);
         assert_eq!(part_one(INPUT), 711650489);
 
-        // assert_eq!(part_two(INPUT_TEST), 167409079868000);
-        // assert_eq!(part_two(INPUT), 138625360533574);
+        assert_eq!(part_two(INPUT), 219388737656593);
     }
 }
