@@ -1,6 +1,4 @@
-// the part 2 solution is simply awful but couldn't think of anything better
-
-use std::{collections::HashMap, ops::Index};
+use std::collections::HashMap;
 
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/12_full.txt"));
 
@@ -21,80 +19,76 @@ impl Spring {
     }
 }
 struct SpringRow {
-    row: Vec<Spring>,
-    damaged_groups: Vec<usize>,
+    springs: Vec<Spring>,
+    groups: Vec<usize>,
 }
 impl SpringRow {
     pub fn count_arrangements(
         &self,
-        index: usize,
+        spring_index: usize,
         group_index: usize,
         cache: &mut HashMap<(usize, usize), usize>,
     ) -> usize {
-        if group_index == self.damaged_groups.len() {
-            if index < self.row.len() && self.row[index..].contains(&Spring::Damaged) {
-                return 0;
-            } else {
-                return 1;
-            }
-        }
-        if index >= self.row.len() {
-            return 0;
-        }
-        let group_length = self.damaged_groups[group_index];
-        if index + group_length > self.row.len() {
-            return 0;
-        }
-        let next_index = match self.row[index..]
-            .iter()
-            .position(|x| matches!(x, Spring::Damaged | Spring::Unknown))
-        {
-            Some(i) => index + i,
-            None => return 0,
-        };
-        if next_index + group_length > self.row.len() {
-            return 0;
-        }
-        if let Some(res) = cache.get(&(next_index, group_index)) {
+        if let Some(res) = cache.get(&(spring_index, group_index)) {
             return *res;
         }
+        // skip all operational springs
+        if spring_index < self.springs.len() && self.springs[spring_index] == Spring::Operational {
+            return self.count_arrangements(spring_index + 1, group_index, cache);
+        }
+        let Some(group) = self.groups.get(group_index).copied() else {
+            return 0;
+        };
+
+        if spring_index + group > self.springs.len() {
+            return 0;
+        }
+
         let mut result = 0;
 
-        let count_damaged = self.row[next_index..next_index + group_length]
-            .iter()
-            .filter(|x| matches!(x, Spring::Damaged))
-            .count();
-        let count_unknown = self.row[next_index..next_index + group_length]
-            .iter()
-            .filter(|x| matches!(x, Spring::Unknown))
-            .count();
-        if count_damaged <= group_length && count_damaged + count_unknown >= group_length {
-            if !(next_index + group_length < self.row.len()
-                && self.row[next_index + group_length] == Spring::Damaged)
+        let target_springs = &self.springs[spring_index..spring_index + group];
+        let (count_damaged, count_unknown) = target_springs.iter().fold((0, 0), |acc, x| match x {
+            Spring::Damaged => (acc.0 + 1, acc.1),
+            Spring::Unknown => (acc.0, acc.1 + 1),
+            _ => acc,
+        });
+        // this checks if the current group is valid assuming that all unknowns can be turned into damaged springs
+        if count_damaged <= group
+            && count_damaged + count_unknown >= group
+            && !(spring_index + group < self.springs.len()
+                && self.springs[spring_index + group] == Spring::Damaged)
+        {
+            // if all groups are processed the row is valid if
+            // there are no springs or no more damaged springs left
+            if group_index == self.groups.len() - 1
+                && (spring_index + group + 1 >= self.springs.len()
+                    || !self.springs[spring_index + group + 1..].contains(&Spring::Damaged))
             {
-                result +=
-                    self.count_arrangements(next_index + group_length + 1, group_index + 1, cache);
+                result += 1;
+            } else {
+                // if we still have groups to process, defer to the result of the next group
+                result += self.count_arrangements(spring_index + group + 1, group_index + 1, cache);
             }
         }
-        if matches!(self.row[next_index], Spring::Unknown) {
-            result += self.count_arrangements(next_index + 1, group_index, cache);
+        // also check the permutation where the first unknown is operational
+        if self.springs[spring_index] == Spring::Unknown {
+            result += self.count_arrangements(spring_index + 1, group_index, cache);
         }
-        cache.insert((next_index, group_index), result);
+        cache.insert((spring_index, group_index), result);
         result
     }
+
     pub fn unfold(&self) -> Self {
-        let mut new_springs = self.row.clone();
-        let mut new_groups = self.damaged_groups.clone();
-        for i in 0..4 {
-            if i < 4 {
-                new_springs.push(Spring::Unknown);
-            }
-            new_springs.extend(self.row.clone());
-            new_groups.extend(self.damaged_groups.clone());
+        let mut new_springs = self.springs.clone();
+        let mut new_groups = self.groups.clone();
+        for _ in 0..4 {
+            new_springs.push(Spring::Unknown);
+            new_springs.extend(self.springs.clone());
+            new_groups.extend(self.groups.clone());
         }
         Self {
-            row: new_springs,
-            damaged_groups: new_groups,
+            springs: new_springs,
+            groups: new_groups,
         }
     }
 }
@@ -108,8 +102,8 @@ fn parse(input: &str) -> Vec<SpringRow> {
             .map(|c| c.parse().unwrap())
             .collect();
         v.push(SpringRow {
-            row,
-            damaged_groups,
+            springs: row,
+            groups: damaged_groups,
         })
     }
     v
@@ -144,30 +138,6 @@ mod tests {
     fn test() {
         assert_eq!(part_one(INPUT_TEST), 21);
         assert_eq!(part_one(INPUT), 7460);
-        let row = SpringRow {
-            row: vec![Spring::Operational, Spring::Damaged],
-            damaged_groups: vec![1],
-        };
-        let unfolded_row = row.unfold();
-        assert_eq!(
-            unfolded_row.row,
-            vec![
-                Spring::Operational,
-                Spring::Damaged,
-                Spring::Unknown,
-                Spring::Operational,
-                Spring::Damaged,
-                Spring::Unknown,
-                Spring::Operational,
-                Spring::Damaged,
-                Spring::Unknown,
-                Spring::Operational,
-                Spring::Damaged,
-                Spring::Unknown,
-                Spring::Operational,
-                Spring::Damaged
-            ]
-        );
 
         assert_eq!(part_two(INPUT_TEST), 525152);
         assert_eq!(part_two(INPUT), 6720660274964);
