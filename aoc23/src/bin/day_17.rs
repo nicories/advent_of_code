@@ -1,9 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+use std::collections::HashSet;
 
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/17_full.txt"));
 
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
+type Position = (usize, usize);
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 struct State {
@@ -11,8 +12,9 @@ struct State {
     position: Position,
     current_direction: Direction,
     steps_in_direction: usize,
+    minimum_steps: usize,
+    maximum_steps: usize,
 }
-type Position = (usize, usize);
 
 impl Ord for State {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -37,7 +39,14 @@ impl State {
             Direction::Left,
             Direction::Right,
         ] {
-            if self.current_direction == direction && self.steps_in_direction == 3 {
+            // check miniumum steps
+            if self.steps_in_direction < self.minimum_steps && direction != self.current_direction {
+                continue;
+            }
+
+            // check maximum steps
+            if self.current_direction == direction && self.steps_in_direction == self.maximum_steps
+            {
                 continue;
             }
             // skip reverse directions
@@ -66,6 +75,8 @@ impl State {
                 position: new_position,
                 current_direction: direction,
                 steps_in_direction: new_steps,
+                minimum_steps: self.minimum_steps,
+                maximum_steps: self.maximum_steps,
             })
         }
 
@@ -73,7 +84,9 @@ impl State {
     }
 }
 
-fn shortest_path(grid: &Grid, start: Position, goal: Position) -> u32 {
+fn shortest_path(grid: &Grid, minimum_steps: usize, maximum_steps: usize) -> u32 {
+    let start = (0, 0);
+    let goal = (grid[0].len() - 1, grid.len() - 1);
     let mut priority_queue = BinaryHeap::new();
     let mut visited: HashSet<(Position, Direction, usize)> = HashSet::new();
 
@@ -82,12 +95,16 @@ fn shortest_path(grid: &Grid, start: Position, goal: Position) -> u32 {
         position: start,
         current_direction: Direction::Right,
         steps_in_direction: 0,
+        minimum_steps,
+        maximum_steps,
     });
     priority_queue.push(State {
         cost: 0,
         position: start,
         current_direction: Direction::Down,
         steps_in_direction: 0,
+        minimum_steps,
+        maximum_steps,
     });
 
     // Examine the frontier with lower cost nodes first (min-heap)
@@ -141,13 +158,14 @@ fn parse_grid(input: &str) -> Grid {
         .collect()
 }
 
-fn part_two(input: &str) -> usize {
-    0
+fn part_two(input: &str) -> u32 {
+    let grid = parse_grid(input);
+    shortest_path(&grid, 4, 10)
 }
 
 fn part_one(input: &str) -> u32 {
     let grid = parse_grid(input);
-    shortest_path(&grid, (0, 0), (grid[0].len() - 1, grid.len() - 1))
+    shortest_path(&grid, 0, 3)
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -166,7 +184,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 102);
         assert_eq!(part_one(INPUT), 742);
 
-        // assert_eq!(part_two(INPUT_TEST), 51);
-        // assert_eq!(part_two(INPUT), 244199);
+        assert_eq!(part_two(INPUT_TEST), 94);
+        assert_eq!(part_two(INPUT), 918);
     }
 }
