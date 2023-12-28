@@ -1,11 +1,8 @@
-use std::{
-    cmp::Ordering,
-    collections::{BinaryHeap, HashSet},
-};
+use std::cmp::Ordering;
 
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/23_full.txt"));
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Direction {
     Right,
     Down,
@@ -22,7 +19,7 @@ impl Direction {
         }
     }
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Tile {
     Path,
     Forest,
@@ -52,10 +49,11 @@ fn parse_grid(input: &str) -> Grid {
 }
 type Position = (usize, usize);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 struct State {
     cost: usize,
     position: Position,
+    previous_nodes: Vec<Position>,
     previous_position: Position,
 }
 
@@ -94,34 +92,63 @@ impl State {
                 if self.position.1 != grid.len() - 1 {
                     directions.push(Direction::Up);
                 }
-                for dir in directions {
-                    let new_position = dir.add(self.position);
-                    if grid[new_position.1][new_position.0] != Tile::Forest
-                        && new_position != self.previous_position
-                    {
-                        successors.push(State {
-                            cost: self.cost + 1,
-                            position: new_position,
-                            previous_position: self.position,
-                        });
-                    }
+                let new_positions: Vec<Position> = directions
+                    .iter()
+                    .filter(|dir| {
+                        let new_pos = dir.add(self.position);
+                        let tile = &grid[new_pos.1][new_pos.0];
+                        if let Tile::Slope(slope_dir) = tile {
+                            match (slope_dir, dir) {
+                                (Direction::Right, Direction::Left) => return false,
+                                (Direction::Down, Direction::Up) => return false,
+                                (Direction::Left, Direction::Right) => return false,
+                                (Direction::Up, Direction::Down) => return false,
+                                _ => return true,
+                            };
+                        }
+                        true
+                    })
+                    .map(|dir| dir.add(self.position))
+                    .filter(|pos| grid[pos.1][pos.0] != Tile::Forest)
+                    .filter(|pos| {
+                        *pos != self.previous_position && !self.previous_nodes.contains(pos)
+                    })
+                    .collect();
+                if new_positions.is_empty() {
+                    // println!("no directions at {:?}", self.position);
+                }
+                for new_position in &new_positions {
+                    let new_nodes = if new_positions.len() == 1 {
+                        // println!("only one direction at {:?}", self.position);
+                        self.previous_nodes.clone()
+                    } else {
+                        // println!("found node at {:?}", self.position);
+                        let mut c = self.previous_nodes.clone();
+                        c.push(self.position);
+                        c
+                    };
+                    successors.push(State {
+                        cost: self.cost + 1,
+                        position: *new_position,
+                        previous_position: self.position,
+                        previous_nodes: new_nodes,
+                    });
                 }
             }
             Tile::Slope(dir) => {
                 let new_position = dir.add(self.position);
-                if grid[new_position.1][new_position.0] != Tile::Forest
-                    && new_position != self.previous_position
-                {
+                if grid[new_position.1][new_position.0] != Tile::Forest {
                     successors.push(State {
                         cost: self.cost + 1,
-                        position: dir.add(self.position),
+                        position: new_position,
                         previous_position: self.position,
+                        previous_nodes: self.previous_nodes.clone(),
                     })
                 }
             }
             Tile::Forest => panic!("should never be on a forest"),
         }
-        // println!("h");
+        // println!("pushing {:?} successors", &successors);
         successors
     }
 }
@@ -129,27 +156,33 @@ impl State {
 fn longest_path(grid: &Grid) -> usize {
     let start = (1, 0);
     let goal = (grid[0].len() - 2, grid.len() - 1);
-    let mut priority_queue = BinaryHeap::new();
-    // let mut visited = HashSet::new();
+    let mut queue = vec![];
     let mut v = vec![];
 
-    priority_queue.push(State {
+    queue.push(State {
         cost: 0,
         position: start,
         previous_position: start,
+        previous_nodes: vec![],
     });
 
-    while let Some(state) = priority_queue.pop() {
+    while let Some(state) = queue.pop() {
         if state.position == goal {
+            println!(
+                "reached goal after {}, still have {} in queue",
+                state.cost,
+                queue.len()
+            );
             v.push(state.cost);
             continue;
         }
         for successor in state.possible_successors(grid) {
-            // if !visited.contains(&(successor.position)) {
-            // println!("walking to {:?}", successor.position);
-            // visited.insert((successor.position));
-            priority_queue.push(successor);
-            // }
+            if queue
+                .iter()
+                .any(|s| s.position == successor.position && s.cost > successor.cost)
+            {
+                queue.push(successor);
+            }
         }
     }
 
@@ -157,7 +190,16 @@ fn longest_path(grid: &Grid) -> usize {
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    let mut grid = parse_grid(input);
+    for line in &mut grid {
+        for tile in line {
+            if matches!(tile, Tile::Slope(_)) {
+                *tile = Tile::Path;
+            }
+        }
+    }
+
+    longest_path(&grid)
 }
 
 fn part_one(input: &str) -> usize {
@@ -180,7 +222,7 @@ mod tests {
     fn test() {
         assert_eq!(part_one(INPUT_TEST), 94);
         assert_eq!(part_one(INPUT), 2230);
-        // assert_eq!(part_two(INPUT_TEST), 7);
-        // assert_eq!(part_two(INPUT), 109531);
+        assert_eq!(part_two(INPUT_TEST), 154);
+        assert_eq!(part_two(INPUT), 6542);
     }
 }
