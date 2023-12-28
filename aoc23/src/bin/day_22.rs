@@ -10,12 +10,7 @@ struct Brick {
 }
 
 fn ranges_overlap(a: &RangeInclusive<u32>, b: &RangeInclusive<u32>) -> bool {
-    for digit in <RangeInclusive<u32> as Clone>::clone(&a).into_iter() {
-        if b.contains(&digit) {
-            return true;
-        }
-    }
-    false
+    b.contains(a.start()) || b.contains(a.end()) || a.contains(b.start()) || a.contains(b.end())
 }
 
 fn parse_bricks(input: &str) -> Vec<Brick> {
@@ -33,22 +28,21 @@ fn parse_bricks(input: &str) -> Vec<Brick> {
         })
         .collect()
 }
-fn bricks_fall(mut bricks: Vec<Brick>) -> Vec<Brick> {
+fn bricks_fall(mut bricks: Vec<Brick>) -> (Vec<Brick>, usize) {
     bricks.sort_by(|a, b| a.z.start().cmp(b.z.start()));
-    assert!(bricks[0].z.start() <= bricks[1].z.start());
+    let mut moves = 0;
     let mut new_bricks: Vec<Brick> = vec![];
-    for brick in bricks.to_vec().into_iter() {
+    for brick in bricks {
         let x = brick.x.clone();
         let y = brick.y.clone();
         let mut offset = 0;
-        let bricks_below: Vec<Brick> = new_bricks
+        let bricks_below = new_bricks
             .iter()
-            .filter(|b| ranges_overlap(&b.x, &brick.x) && ranges_overlap(&b.y, &brick.y))
+            .filter(|b| b.z.end() < brick.z.start() && ranges_overlap(&b.x, &brick.x) && ranges_overlap(&b.y, &brick.y))
             .map(|b| b.clone())
-            .collect();
+            ;
         for _ in 1..*brick.z.start() {
-            if bricks_below
-                .iter()
+            if bricks_below.clone()
                 .any(|b| *b.z.end() == brick.z.start() - 1 - offset)
             {
                 break;
@@ -57,53 +51,36 @@ fn bricks_fall(mut bricks: Vec<Brick>) -> Vec<Brick> {
             }
         }
         let z = RangeInclusive::new(brick.z.start() - offset, brick.z.end() - offset);
-        new_bricks.push(Brick { x, y, z })
+        let new_brick = Brick { x, y, z };
+        if new_brick != brick {
+            moves += 1;
+        }
+        new_bricks.push(new_brick)
     }
-    new_bricks.sort_by(|a, b| a.z.start().cmp(b.z.start()));
-    new_bricks
+    (new_bricks, moves)
 }
 
-fn safe_bricks(bricks: Vec<Brick>) -> usize {
-    let mut sum = 0;
-    for brick in bricks.to_vec().into_iter() {
-        let bricks_directly_above: Vec<Brick> = bricks
-            .iter()
-            .filter(|b| ranges_overlap(&b.x, &brick.x) || ranges_overlap(&b.y, &brick.y))
-            .filter(|b| *b.z.start() == brick.z.end() + 1)
-            .map(|b| b.clone())
-            .collect();
-        if bricks_directly_above.len() == 0 {
-            // no bricks above it
-            sum += 1;
-            continue;
-        }
-        if bricks_directly_above.iter().all(|above_brick| {
-            let bricks_directly_below: Vec<Brick> = bricks
-                .iter()
-                .filter(|b| {
-                    ranges_overlap(&b.x, &above_brick.x) && ranges_overlap(&b.y, &above_brick.y)
-                })
-                .filter(|b| *b.z.end() == above_brick.z.start() - 1)
-                .filter(|b| **b != brick)
-                .map(|b| b.clone())
-                .collect();
-            bricks_directly_below.len() > 0
-        }) {
-            sum += 1;
-        }
+fn count_how_many_would_fall(input: &str) -> Vec<usize> {
+    let bricks = parse_bricks(input);
+    let (fallen_bricks, _) = bricks_fall(bricks);
+    let mut v = vec![];
+    for i in 0..fallen_bricks.len() {
+        let mut c = fallen_bricks.to_vec();
+        c.remove(i);
+        v.push(bricks_fall(c).1);
     }
-    sum
+    v
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    count_how_many_would_fall(input).iter().sum()
 }
 
 fn part_one(input: &str) -> usize {
-    let bricks = parse_bricks(input);
-    let fallen_bricks = bricks_fall(bricks);
-
-    safe_bricks(fallen_bricks)
+    count_how_many_would_fall(input)
+        .iter()
+        .filter(|x| **x == 0)
+        .count()
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -119,40 +96,9 @@ mod tests {
 
     #[test]
     fn test() {
-        let bricks = parse_bricks(INPUT_TEST);
-        assert_eq!(
-            bricks[0],
-            Brick {
-                x: RangeInclusive::new(1, 1),
-                y: RangeInclusive::new(0, 2),
-                z: RangeInclusive::new(1, 1),
-            }
-        );
-        let fallen_bricks = bricks_fall(bricks);
-        assert_eq!(
-            fallen_bricks[0],
-            Brick {
-                x: RangeInclusive::new(1, 1),
-                y: RangeInclusive::new(0, 2),
-                z: RangeInclusive::new(1, 1),
-            }
-        );
-        assert_eq!(
-            fallen_bricks[6],
-            Brick {
-                x: RangeInclusive::new(1, 1),
-                y: RangeInclusive::new(1, 1),
-                z: RangeInclusive::new(5, 6),
-            }
-        );
         assert_eq!(part_one(INPUT_TEST), 5);
         assert_eq!(part_one(INPUT), 519);
-        // assert_eq!(part_two(INPUT_TEST), 16);
-        // assert_eq!(part_two(INPUT_TEST, 100,), 6536);
-        // assert_eq!(part_two(INPUT_TEST, 500,), 167004);
-        // assert_eq!(part_two(INPUT_TEST, 1000,), 668697);
-        // assert_eq!(part_two(INPUT_TEST, 5000,), 16733044);
-
-        // assert_eq!(part_two(INPUT), 219388737656593);
+        assert_eq!(part_two(INPUT_TEST), 7);
+        assert_eq!(part_two(INPUT), 109531);
     }
 }
