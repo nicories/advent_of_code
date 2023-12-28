@@ -177,7 +177,7 @@ fn longest_path(grid: &Grid) -> usize {
             continue;
         }
         for successor in state.possible_successors(grid) {
-            if queue
+            if !queue
                 .iter()
                 .any(|s| s.position == successor.position && s.cost > successor.cost)
             {
