@@ -70,7 +70,6 @@ impl Grid {
             .collect()
     }
     pub fn parse_grid(input: &str) -> Self {
-        let mut start = (0, 0);
         let positions = input
             .lines()
             .rev()
@@ -86,21 +85,72 @@ impl Grid {
 }
 fn reachable_garden_plots(input: &str, steps: usize) -> usize {
     let grid = Grid::parse_grid(input);
-    let mut current_positions: Vec<Position> = vec![grid.start_position.clone()];
-    for _ in 0..steps {
-        let mut new_positions: Vec<Position> = vec![];
-        for pos in &current_positions {
-            new_positions.append(&mut grid.neighbors(pos));
-        }
-        new_positions.sort();
-        new_positions.dedup_by(|a, b| a == b);
-        current_positions = new_positions;
+    let mut queue = VecDeque::new();
+    let mut visited: HashMap<Position, usize> = HashMap::new();
+    for neighbor in grid.neighbors(&grid.start_position) {
+        queue.push_back((neighbor, 1));
     }
-    current_positions.len()
+    while let Some((pos, cost)) = queue.pop_front() {
+        if !visited.contains_key(&pos) {
+            visited.insert(pos, cost);
+            for neighbor in grid.neighbors(&pos) {
+                queue.push_back((neighbor, cost + 1));
+            }
+        }
+    }
+    visited
+        .values()
+        .filter(|p| **p <= steps && **p % 2 == steps % 2)
+        .count()
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    let steps = 26501365;
+    let grid = Grid::parse_grid(input);
+    let mut queue = VecDeque::new();
+    let mut visited: HashMap<Position, usize> = HashMap::new();
+    for neighbor in grid.neighbors(&grid.start_position) {
+        queue.push_back((neighbor, 1));
+    }
+    while let Some((pos, cost)) = queue.pop_front() {
+        if !visited.contains_key(&pos) {
+            visited.insert(pos, cost);
+            for neighbor in grid.neighbors(&pos) {
+                queue.push_back((neighbor, cost + 1));
+            }
+        }
+    }
+
+    // start is exactly in the center of the grid
+    let distance_to_edge = grid.positions.len() - grid.start_position.0 - 1;
+    let even_rhombus = visited
+        .values()
+        .filter(|steps| **steps % 2 == 0 && **steps <= distance_to_edge)
+        .count();
+    let odd_rhombus = visited
+        .values()
+        .filter(|steps| **steps % 2 == 1 && **steps <= distance_to_edge)
+        .count();
+    let even_corner_rhombus = visited
+        .values()
+        .filter(|steps| **steps % 2 == 0 && **steps > distance_to_edge)
+        .count();
+    let odd_corner_rhombus = visited
+        .values()
+        .filter(|steps| **steps % 2 == 1 && **steps > distance_to_edge)
+        .count();
+
+    // length/width of one rhombus is 131 so after that many steps we are at the center of the next one
+    // number of crossed rhombus (=202300)
+    let n_grids_in_one_direction = (steps - distance_to_edge) / grid.positions.len();
+    let n_even_rhombus = n_grids_in_one_direction * n_grids_in_one_direction;
+    let n_odd_rhombus = (n_grids_in_one_direction + 1) * (n_grids_in_one_direction + 1);
+    let n_corner_rhombus = n_even_rhombus + n_grids_in_one_direction;
+
+    n_odd_rhombus * odd_rhombus
+        + n_even_rhombus * even_rhombus
+        + n_corner_rhombus * odd_corner_rhombus
+        + n_corner_rhombus * even_corner_rhombus
 }
 
 fn part_one(input: &str) -> usize {
@@ -121,9 +171,8 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(reachable_garden_plots(INPUT_TEST, 6), 16);
-        // assert_eq!(part_one(INPUT_TEST), 32000000);
-        // assert_eq!(part_one(INPUT), 711650489);
+        assert_eq!(part_one(INPUT), 3746);
 
-        // assert_eq!(part_two(INPUT), 219388737656593);
+        assert_eq!(part_two(INPUT), 623540829615589);
     }
 }
