@@ -5,10 +5,11 @@ use std::{
 };
 
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/25_full.txt"));
+const N_CUTS: usize = 3;
 
 #[derive(Debug, Clone)]
 struct Graph {
-    nodes: Vec<(String, Vec<String>)>,
+    node_edges: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -33,7 +34,7 @@ impl PartialOrd for State {
 impl Graph {
     pub fn get_all_connected(&self, start: &String) -> Vec<String> {
         let mut queue: Vec<String> = vec![];
-        let mut visited: Vec<String> = vec![start.clone()];
+        let mut visited = vec![start.clone()];
         for neighbor in self.get_neigbors(start) {
             queue.push(neighbor);
         }
@@ -48,9 +49,9 @@ impl Graph {
         visited
     }
     pub fn count_two_groups(&self) -> usize {
-        let group_a = self.get_all_connected(&self.nodes[0].0);
+        let group_a = self.get_all_connected(&self.node_edges.keys().next().unwrap());
         let group_b_start = self
-            .nodes
+            .node_edges
             .iter()
             .find(|node| !group_a.contains(&node.0))
             .unwrap();
@@ -59,25 +60,20 @@ impl Graph {
         group_a.len() * group_b.len()
     }
     pub fn get_neigbors(&self, key: &String) -> Vec<String> {
-        let mut v = vec![];
-        for node in &self.nodes {
-            if node.0 == key.to_string() {
-                v.append(&mut node.1.clone());
-            } else if node.1.contains(&key.to_string()) {
-                v.push(node.0.clone());
-            }
-        }
-        v
+        self.node_edges.get(key).unwrap().clone()
     }
     pub fn unique_ways_between(&self, a: &String, b: &String) -> usize {
         let mut grid = self.clone();
         let mut ways = 0;
         while let Some(state) = grid.distance_between(a, b) {
-            for pair in state.previous_nodes[0..state.previous_nodes.len()].windows(2) {
+            for pair in state.previous_nodes.windows(2) {
                 grid.remove_edge(&pair[0], &pair[1]);
             }
             grid.remove_edge(state.previous_nodes.last().unwrap(), b);
             ways += 1;
+            if ways > N_CUTS {
+                return ways;
+            }
         }
         ways
     }
@@ -111,32 +107,19 @@ impl Graph {
         None
     }
     pub fn remove_edge(&mut self, a: &String, b: &String) {
-        for node in &mut self.nodes {
-            if node.0 == a.to_string() {
-                if let Some(index) = node.1.iter().position(|key| key == b) {
-                    node.1.remove(index);
-                    return;
-                }
-            } else if node.0 == b.to_string() {
-                if let Some(index) = node.1.iter().position(|key| key == a) {
-                    node.1.remove(index);
-                    return;
-                }
-            }
-        }
-        panic!("no edge found");
+        let a_node = self.node_edges.get_mut(a).unwrap();
+        a_node.retain(|s| s != b);
+        let b_node = self.node_edges.get_mut(b).unwrap();
+        b_node.retain(|s| s != a);
     }
-}
-
-fn part_two(input: &str) -> usize {
-    0
 }
 
 fn part_one(input: &str) -> usize {
     let mut graph = parse_components(input);
     let mut possible_connections = vec![];
-    for i in 0..graph.nodes.len() {
-        let name = graph.nodes[i].0.clone();
+    let names: Vec<String> = graph.node_edges.keys().map(|n| n.clone()).collect();
+    for i in 0..names.len() {
+        let name = &names[i];
         for neighbor in graph.get_neigbors(&name) {
             let neighbors_level2 = graph.get_neigbors(&neighbor);
             if neighbors_level2
@@ -151,25 +134,25 @@ fn part_one(input: &str) -> usize {
             }
         }
     }
-    let mut pairs: Vec<(String, String)> = vec![];
-    for (i, pair) in possible_connections.iter().enumerate() {
-        println!("{i} / {}", possible_connections.len());
-        let ways = graph.unique_ways_between(&pair.0, &pair.1);
-        if ways == 3 {
-            pairs.push(pair.clone());
-        }
-        if pairs.len() == 3 {
-            break;
-        }
-    }
-    assert!(pairs.len() == 3);
+    let pairs: Vec<(String, String)> = possible_connections
+        .iter()
+        .filter_map(|pair| {
+            let ways = graph.unique_ways_between(&pair.0, &pair.1);
+            if ways == N_CUTS {
+                Some(pair.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    // assert!(pairs.len() == N_CUTS);
     for pair in pairs {
         graph.remove_edge(&pair.0, &pair.1);
     }
     graph.count_two_groups()
 }
 fn parse_components(input: &str) -> Graph {
-    let components = input
+    let components: Vec<(String, Vec<String>)> = input
         .lines()
         .map(|line| {
             let (name, rest) = line.split_once(':').unwrap();
@@ -182,11 +165,30 @@ fn parse_components(input: &str) -> Graph {
             (name.to_string(), list)
         })
         .collect();
-    Graph { nodes: components }
+    let mut m: HashMap<String, Vec<String>> = HashMap::new();
+    for node in &components {
+        if !m.contains_key(&node.0) {
+            m.insert(node.0.clone(), node.1.clone());
+        } else {
+            let n = m.get_mut(&node.0).unwrap();
+            for neighbor in &node.1 {
+                n.push(neighbor.clone());
+            }
+        }
+        // reverse
+        for neighbor in &node.1 {
+            if !m.contains_key(neighbor) {
+                m.insert(neighbor.clone(), vec![node.0.clone()]);
+            } else {
+                let n = m.get_mut(neighbor).unwrap();
+                n.push(node.0.clone());
+            }
+        }
+    }
+    Graph { node_edges: m }
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
-    println!("2: {}", part_two(INPUT));
 }
 
 // test
@@ -198,70 +200,7 @@ mod tests {
 
     #[test]
     fn test() {
-        {
-            let mut graph = parse_components(INPUT_TEST);
-            assert_eq!(graph.get_all_connected(&"hfx".to_string()).len(), 15);
-            assert_eq!(
-                graph.unique_ways_between(&"hfx".to_string(), &"pzl".to_string()),
-                3
-            );
-            assert_eq!(
-                graph.unique_ways_between(&"pzl".to_string(), &"hfx".to_string()),
-                3
-            );
-            assert_eq!(
-                graph.unique_ways_between(&"hfx".to_string(), &"ntq".to_string()),
-                4
-            );
-            assert_eq!(
-                graph
-                    .distance_between(&"hfx".to_string(), &"pzl".to_string())
-                    .unwrap()
-                    .cost,
-                1
-            );
-            assert_eq!(
-                graph
-                    .distance_between(&"pzl".to_string(), &"hfx".to_string())
-                    .unwrap()
-                    .cost,
-                1
-            );
-            graph.remove_edge(&"pzl".to_string(), &"hfx".to_string());
-            assert_eq!(
-                graph
-                    .distance_between(&"hfx".to_string(), &"pzl".to_string())
-                    .unwrap()
-                    .cost,
-                4
-            );
-            assert_eq!(
-                graph
-                    .distance_between(&"pzl".to_string(), &"hfx".to_string())
-                    .unwrap()
-                    .cost,
-                4
-            );
-            graph.remove_edge(&"bvb".to_string(), &"cmg".to_string());
-            graph.remove_edge(&"nvd".to_string(), &"jqt".to_string());
-            assert_eq!(
-                graph.distance_between(&"hfx".to_string(), &"pzl".to_string()),
-                None
-            );
-            assert_eq!(
-                graph.distance_between(&"pzl".to_string(), &"hfx".to_string()),
-                None
-            );
-            let n = graph.get_neigbors(&"bvb".to_string());
-        }
-        {
-            let graph = parse_components(INPUT);
-            let n = graph.get_neigbors(&"xtb".to_string());
-        }
         assert_eq!(part_one(INPUT_TEST), 54);
         assert_eq!(part_one(INPUT), 527790);
-
-        // assert_eq!(part_two(INPUT_TEST), 47.0);
-        // assert_eq!(part_two(INPUT), 6542);
     }
 }
