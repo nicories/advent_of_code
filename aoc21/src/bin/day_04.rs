@@ -16,10 +16,7 @@ fn parse(input: &str) -> (Vec<BingoBoard>, Vec<u32>) {
                 .lines()
                 .map(|line| {
                     line.split_ascii_whitespace()
-                        .map(|c| {
-                            dbg!(&c);
-                            c.parse::<u32>().unwrap()
-                        })
+                        .map(|c| c.parse::<u32>().unwrap())
                         .collect()
                 })
                 .collect()
@@ -29,10 +26,11 @@ fn parse(input: &str) -> (Vec<BingoBoard>, Vec<u32>) {
 }
 fn check_bingo(board: &BingoBoard, numbers: &[u32]) -> bool {
     // horizontal
-    for line in board {
-        if line.iter().all(|n| numbers.contains(n)) {
-            return true;
-        }
+    if board
+        .iter()
+        .any(|row| row.iter().all(|n| numbers.contains(n)))
+    {
+        return true;
     }
     // vertical
     for i in 0..board[0].len() {
@@ -43,8 +41,28 @@ fn check_bingo(board: &BingoBoard, numbers: &[u32]) -> bool {
     }
     false
 }
+fn unmarked_numbers_sum(board: &BingoBoard, drawn_numbers: &[u32]) -> u32 {
+    board
+        .iter()
+        .map(|line| {
+            line.iter()
+                .filter(|x| !drawn_numbers.contains(x))
+                .sum::<u32>()
+        })
+        .sum::<u32>()
+}
 fn part_two(input: &str) -> u32 {
-    0
+    let (mut boards, numbers) = parse(input);
+    let mut drawn_numbers = vec![];
+    for number in numbers {
+        drawn_numbers.push(number);
+        if boards.len() > 1 {
+            boards.retain(|board| !check_bingo(board, &drawn_numbers));
+        } else if check_bingo(&boards[0], &drawn_numbers) {
+            return number * unmarked_numbers_sum(&boards[0], &drawn_numbers);
+        }
+    }
+    panic!("at the disco");
 }
 
 fn part_one(input: &str) -> u32 {
@@ -54,15 +72,7 @@ fn part_one(input: &str) -> u32 {
         drawn_numbers.push(number);
         for board in &boards {
             if check_bingo(board, &drawn_numbers) {
-                return number
-                    * board
-                        .iter()
-                        .map(|line| {
-                            line.iter()
-                                .filter(|x| !drawn_numbers.contains(x))
-                                .sum::<u32>()
-                        })
-                        .sum::<u32>();
+                return number * unmarked_numbers_sum(board, &drawn_numbers);
             }
         }
     }
@@ -85,7 +95,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 4512);
         assert_eq!(part_one(INPUT), 8442);
 
-        // assert_eq!(part_two(INPUT_TEST), 230);
-        // assert_eq!(part_two(INPUT), 1007985);
+        assert_eq!(part_two(INPUT_TEST), 1924);
+        assert_eq!(part_two(INPUT), 4590);
     }
 }
