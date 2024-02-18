@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/12_full.txt"));
 
@@ -29,44 +29,65 @@ fn parse(input: &str) -> Graph {
     graph
 }
 
-fn part_two(input: &str) -> usize {
-    0
-}
-
-struct State {
-    previous_nodes: Vec<String>,
-}
-
-fn part_one(input: &str) -> usize {
+fn ways_through_caves(input: &str, allow_double_visit: bool) -> usize {
     let graph = parse(input);
     let mut queue = vec![];
     queue.push(State {
-        previous_nodes: vec!["start".to_string()],
+        current_node: "start".to_string(),
+        visited_small: HashMap::new(),
     });
     let mut ways = 0;
     while let Some(state) = queue.pop() {
-        let current = state.previous_nodes.last().unwrap();
+        let current = state.current_node;
         if current == "end" {
             ways += 1;
             continue;
         }
-        let neighbors = graph.get(current).unwrap();
+        let neighbors = graph.get(&current).unwrap();
         for neighbor in neighbors {
-            // skip visited small caves
-            if neighbor.chars().nth(0).unwrap().is_lowercase()
-                && state.previous_nodes.contains(neighbor)
-            {
+            let mut new_visited = state.visited_small.clone();
+            // skip start
+            if neighbor == "start" {
                 continue;
             }
-            let mut new_visited = state.previous_nodes.clone();
-            new_visited.push(neighbor.clone());
+
+            // small cave
+            if neighbor.chars().next().unwrap().is_lowercase() && neighbor != "end" {
+                // already visited
+                if state.visited_small.contains_key(neighbor) {
+                    if !allow_double_visit {
+                        continue;
+                    }
+                    // check if we visited a small cave once already
+                    if state.visited_small.values().any(|x| *x == 2) {
+                        continue;
+                    }
+                    new_visited.insert(neighbor.to_string(), 2);
+                } else {
+                    new_visited.insert(neighbor.to_string(), 1);
+                }
+            }
             queue.push(State {
-                previous_nodes: new_visited,
+                current_node: neighbor.to_string(),
+                visited_small: new_visited
             });
         }
     }
 
     ways
+}
+
+fn part_two(input: &str) -> usize {
+    ways_through_caves(input, true)
+}
+
+struct State {
+    current_node: String,
+    visited_small: HashMap<String, usize>,
+}
+
+fn part_one(input: &str) -> usize {
+    ways_through_caves(input, false)
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -79,15 +100,13 @@ mod tests {
     use super::*;
     const INPUT_TEST: &str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/12_test.txt"));
-    const INPUT_TEST2: &str =
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/12_test.txt"));
 
     #[test]
     fn test() {
         assert_eq!(part_one(INPUT_TEST), 10);
         assert_eq!(part_one(INPUT), 3576);
 
-        // assert_eq!(part_two(INPUT_TEST), 195);
-        // assert_eq!(part_two(INPUT), 235);
+        assert_eq!(part_two(INPUT_TEST), 36);
+        assert_eq!(part_two(INPUT), 84271);
     }
 }
