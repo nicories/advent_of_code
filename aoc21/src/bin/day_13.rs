@@ -1,10 +1,6 @@
-use core::num;
-use std::collections::HashMap;
-
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/13_full.txt"));
 
-type Graph = HashMap<String, Vec<String>>;
-
+#[derive(Clone, Copy)]
 enum Split {
     X(i32),
     Y(i32),
@@ -24,7 +20,7 @@ fn parse(input: &str) -> (Vec<(i32, i32)>, Vec<Split>) {
             .map(|line| {
                 let (rest, number) = line.split_once('=').unwrap();
                 let number = number.parse().unwrap();
-                if rest.contains("x") {
+                if rest.contains('x') {
                     Split::X(number)
                 } else {
                     Split::Y(number)
@@ -34,24 +30,18 @@ fn parse(input: &str) -> (Vec<(i32, i32)>, Vec<Split>) {
     )
 }
 
-fn part_two(input: &str) -> usize {
-    0
-}
-
-fn part_one(input: &str) -> usize {
-    let (mut cords, splits) = parse(input);
-    let split = &splits[0];
+fn fold(cords: &mut Vec<(i32, i32)>, split: Split) {
     match split {
         Split::X(n) => {
-            for cord in &mut cords {
-                if cord.0 > *n {
+            for cord in &mut *cords {
+                if cord.0 > n {
                     cord.0 -= 2 * (cord.0 - n);
                 }
             }
         }
         Split::Y(n) => {
-            for cord in &mut cords {
-                if cord.1 > *n {
+            for cord in &mut *cords {
+                if cord.1 > n {
                     cord.1 -= 2 * (cord.1 - n);
                 }
             }
@@ -60,11 +50,37 @@ fn part_one(input: &str) -> usize {
 
     cords.sort();
     cords.dedup();
+}
+
+fn part_two(input: &str) {
+    let (mut cords, splits) = parse(input);
+    for split in splits {
+        fold(&mut cords, split);
+    }
+    let max_x = cords.iter().max_by(|a, b| a.0.cmp(&b.0)).unwrap().0;
+    let max_y = cords.iter().max_by(|a, b| a.1.cmp(&b.1)).unwrap().1;
+    for y in 0..=max_y {
+        for x in 0..=max_x {
+            if cords.contains(&(x, y)) {
+                print!("#");
+            } else {
+                print!(".");
+            }
+        }
+        println!();
+    }
+}
+
+fn part_one(input: &str) -> usize {
+    let (mut cords, splits) = parse(input);
+    let split = &splits[0];
+    fold(&mut cords, *split);
     cords.len()
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
-    println!("2: {}", part_two(INPUT));
+    println!("2:");
+    part_two(INPUT);
 }
 
 // test
@@ -78,8 +94,5 @@ mod tests {
     fn test() {
         assert_eq!(part_one(INPUT_TEST), 17);
         assert_eq!(part_one(INPUT), 712);
-
-        // assert_eq!(part_two(INPUT_TEST), 36);
-        // assert_eq!(part_two(INPUT), 84271);
     }
 }
