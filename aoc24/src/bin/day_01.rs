@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 const INPUT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/input/01_full.txt"));
 
 fn parse(input: &str) -> (Vec<u32>, Vec<u32>) {
@@ -12,9 +14,26 @@ fn parse(input: &str) -> (Vec<u32>, Vec<u32>) {
         })
         .unzip()
 }
+fn count_unique(mut v: Vec<u32>) -> HashMap<u32, u32> {
+    let mut map = HashMap::new();
+    while let Some(x) = v.pop() {
+        let count = 1 + map.get(&x).unwrap_or(&0);
+        map.insert(x, count);
+    }
+    map
+}
 
 fn part_two(input: &str) -> u32 {
-    0
+    let (left, right) = parse(input);
+    let left_unique = count_unique(left);
+    let right_unique = count_unique(right);
+
+    left_unique
+        .iter()
+        .map(|(left_key, left_count)| {
+            left_count * left_key * right_unique.get(left_key).unwrap_or(&0)
+        })
+        .sum()
 }
 
 fn part_one(input: &str) -> u32 {
@@ -46,7 +65,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 11);
         assert_eq!(part_one(INPUT), 1110981);
 
-        // assert_eq!(part_two(INPUT_TEST2), 281);
-        // assert_eq!(part_two(INPUT), 55686);
+        assert_eq!(part_two(INPUT_TEST), 31);
+        assert_eq!(part_two(INPUT), 24869388);
     }
 }
