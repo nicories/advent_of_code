@@ -12,29 +12,48 @@ fn parse(input: &str) -> Vec<Report> {
         })
         .collect()
 }
-fn is_safe(report: &Report) -> bool {
-    let (min_diff, max_diff) = if report[1] > report[0] {
+
+fn is_safe(report: &Report, tolerance: usize) -> bool {
+    let diffs: Vec<i32> = report.windows(2).map(|pair| pair[1] - pair[0]).collect();
+    let n_inc = diffs.iter().filter(|diff| **diff > 0).count();
+    let (min_diff, max_diff) = if n_inc > diffs.len() / 2 {
         (1, 3)
     } else {
         (-3, -1)
     };
-    let diffs: Vec<i32> = report.windows(2).map(|pair| pair[1] - pair[0]).collect();
-    if diffs
+    let error_index = diffs
         .iter()
-        .any(|diff| *diff < min_diff || *diff > max_diff)
-    {
-        return false;
+        .position(|diff| *diff < min_diff || *diff > max_diff);
+    match error_index {
+        Some(index) => {
+            if tolerance == 0 {
+                return false;
+            } else {
+                let mut pre_copy = report.clone();
+                pre_copy.remove(index);
+                let pre = is_safe(&pre_copy, tolerance - 1);
+
+                let mut post_copy = report.clone();
+                post_copy.remove(index + 1);
+                let post = is_safe(&post_copy, tolerance - 1);
+
+                return pre || post;
+            }
+        }
+        None => {
+            return true;
+        }
     }
-    return true;
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    let reports = parse(input);
+    reports.iter().filter(|report| is_safe(report, 1)).count()
 }
 
 fn part_one(input: &str) -> usize {
     let reports = parse(input);
-    reports.iter().filter(|report| is_safe(report)).count()
+    reports.iter().filter(|report| is_safe(report, 0)).count()
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -50,10 +69,11 @@ mod tests {
 
     #[test]
     fn test() {
+        assert_eq!(is_safe(&vec![1, 3, 2], 1), true);
         assert_eq!(part_one(INPUT_TEST), 2);
         assert_eq!(part_one(INPUT), 371);
 
-        // assert_eq!(part_two(INPUT_TEST), 31);
-        // assert_eq!(part_two(INPUT), 24869388);
+        assert_eq!(part_two(INPUT_TEST), 4);
+        assert_eq!(part_two(INPUT), 426);
     }
 }
