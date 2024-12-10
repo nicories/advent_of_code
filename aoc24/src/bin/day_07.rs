@@ -17,35 +17,39 @@ fn parse(input: &str) -> Vec<Equation> {
         .collect()
 }
 
-fn equation_is_valid((result, operands): &Equation) -> bool {
-    let n_operators = operands.len() - 1;
-    for n_operator in 0..2_i32.pow(n_operators as u32) {
-        let mut operands_iter = operands.iter();
-        let start_result = operands_iter.next().unwrap().clone();
-        let final_res = operands_iter.enumerate().fold(start_result, |res, (i, a)| {
-            if (n_operator & 1 << i) >> i == 0 {
-                res + a
-            } else {
-                res * a
+fn test_equations(input: &str, valid_operations: &[fn(usize, usize) -> usize]) -> usize {
+    parse(input)
+        .into_iter()
+        .filter(|(result, operands)| {
+            for n_operator in 0..valid_operations.len().pow(operands.len() as u32 - 1) {
+                let mut operands_iter = operands.iter();
+                // start with first operand, since it's always plus
+                let start = *operands_iter.next().unwrap();
+                let final_res = operands_iter.enumerate().fold(start, |res, (i, a)| {
+                    let op_index = (n_operator / (valid_operations.len().pow(i as u32)))
+                        % valid_operations.len();
+                    valid_operations[op_index](res, *a)
+                });
+                if final_res == *result {
+                    return true;
+                }
             }
-        });
-        if final_res == *result {
-            return true;
-        }
-    }
-    false
+            false
+        })
+        .map(|(res, _)| res)
+        .sum()
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    let ops = vec![|a, b| a + b, |a, b| a * b, |a, b| {
+        a * 10_usize.pow((b as f64).log10().floor() as u32 + 1) + b
+    }];
+    test_equations(input, &ops)
 }
 
 fn part_one(input: &str) -> usize {
-    parse(input)
-        .into_iter()
-        .filter(equation_is_valid)
-        .map(|(res, _)| res)
-        .sum()
+    let ops = vec![|a, b| a + b, |a, b| a * b];
+    test_equations(input, &ops)
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -64,7 +68,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 3749);
         assert_eq!(part_one(INPUT), 5702958180383);
 
-        // assert_eq!(part_two(INPUT_TEST), 6);
-        // assert_eq!(part_two(INPUT), 1909);
+        assert_eq!(part_two(INPUT_TEST), 11387);
+        assert_eq!(part_two(INPUT), 92612386119138);
     }
 }
