@@ -67,7 +67,7 @@ fn simulate_guard(map: &Map) -> Option<Vec<Position>> {
         .unwrap();
     let mut positions = vec![start];
     let mut dir = Direction::Up;
-    let mut loop_detector = HashSet::new();
+    let mut loop_detector = HashSet::with_capacity(map.len() * map[0].len());
     loop_detector.insert((start, dir));
     loop {
         let pos = positions[positions.len() - 1];
@@ -82,10 +82,9 @@ fn simulate_guard(map: &Map) -> Option<Vec<Position>> {
         let next_tile = &map[next_pos.1 as usize][next_pos.0 as usize];
         match next_tile {
             Tile::Empty | Tile::Start => {
-                if loop_detector.contains(&(next_pos, dir)) {
+                if !loop_detector.insert((next_pos, dir)) {
                     return None;
                 }
-                loop_detector.insert((next_pos, dir));
                 positions.push(next_pos)
             }
             Tile::Obstruction => dir = dir.rotate_90(),
@@ -110,7 +109,7 @@ fn part_two(input: &str) -> usize {
             let before = map[y_obstruction][x_obstruction];
             map[y_obstruction][x_obstruction] = Tile::Obstruction;
             let opt = simulate_guard(&map);
-            map[y_obstruction][x_obstruction] = before.clone();
+            map[y_obstruction][x_obstruction] = before;
             opt.is_none()
         })
         .count()
