@@ -32,28 +32,41 @@ fn parse(input: &str) -> (HashMap<char, Vec<Point>>, i32, i32) {
     )
 }
 
-fn part_two(input: &str) -> usize {
-    0
-}
-
-fn part_one(input: &str) -> usize {
+fn count_unique_antinodes(input: &str, limit_positions: bool) -> usize {
     let (points_vec, x_limit, y_limit) = parse(input);
     let mut antinodes: Vec<Point> = points_vec
         .values()
         .flat_map(|points| {
             let mut v = vec![];
-            for i in 0..points.len() - 1 {
-                let a = &points[i];
-                for j in i + 1..points.len() {
-                    let b = &points[j];
-                    v.push(Point {
-                        x: 2 * a.x - b.x,
-                        y: 2 * a.y - b.y,
-                    });
-                    v.push(Point {
-                        x: 2 * b.x - a.x,
-                        y: 2 * b.y - a.y,
-                    });
+            for (i, a) in points.iter().enumerate() {
+                for b in points.iter().skip(i + 1) {
+                    let x_diff = a.x - b.x;
+                    let y_diff = a.y - b.y;
+                    if limit_positions {
+                        v.push(Point {
+                            x: a.x + x_diff,
+                            y: a.y + y_diff,
+                        });
+                        v.push(Point {
+                            x: b.x - x_diff,
+                            y: b.y - y_diff,
+                        });
+                    } else {
+                        let mut x = a.x;
+                        let mut y = a.y;
+                        while (0..x_limit).contains(&x) && (0..y_limit).contains(&y) {
+                            v.push(Point { x, y });
+                            x -= x_diff;
+                            y -= y_diff;
+                        }
+                        x = b.x;
+                        y = b.y;
+                        while (0..x_limit).contains(&x) && (0..y_limit).contains(&y) {
+                            v.push(Point { x, y });
+                            x += x_diff;
+                            y += y_diff;
+                        }
+                    }
                 }
             }
             v
@@ -63,6 +76,14 @@ fn part_one(input: &str) -> usize {
     antinodes.sort();
     antinodes.dedup();
     antinodes.len()
+}
+
+fn part_two(input: &str) -> usize {
+    count_unique_antinodes(input, false)
+}
+
+fn part_one(input: &str) -> usize {
+    count_unique_antinodes(input, true)
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -81,7 +102,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 14);
         assert_eq!(part_one(INPUT), 409);
 
-        // assert_eq!(part_two(INPUT_TEST), 11387);
-        // assert_eq!(part_two(INPUT), 92612386119138);
+        assert_eq!(part_two(INPUT_TEST), 34);
+        assert_eq!(part_two(INPUT), 1308);
     }
 }
