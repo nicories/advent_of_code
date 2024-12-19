@@ -47,7 +47,7 @@ fn simulate(input: &str, steps: usize) -> usize {
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    simulate(input, 75)
 }
 
 fn part_one(input: &str) -> usize {
@@ -70,6 +70,6 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 55312);
         assert_eq!(part_one(INPUT), 183484);
 
-        // assert_eq!(part_two(INPUT), 1210);
+        assert_eq!(part_two(INPUT), 218817038947400);
     }
 }
