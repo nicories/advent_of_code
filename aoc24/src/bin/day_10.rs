@@ -21,7 +21,7 @@ fn grid_get(grid: &Grid, x: i32, y: i32) -> Option<usize> {
     }
 }
 
-fn hike_to_9(grid: &Grid, (x_start, y_start): (i32, i32)) -> i32 {
+fn hike_to_9(grid: &Grid, (x_start, y_start): (i32, i32), unique: bool) -> i32 {
     let mut queue: Vec<(i32, i32)> = vec![(x_start, y_start)];
     let mut nines = vec![];
     let inc_map = vec![(1, 0), (0, 1), (-1, 0), (0, -1)];
@@ -40,12 +40,27 @@ fn hike_to_9(grid: &Grid, (x_start, y_start): (i32, i32)) -> i32 {
         }
     }
     nines.sort();
-    nines.dedup();
+    if unique {
+        nines.dedup();
+    }
     nines.len() as i32
 }
 
-fn part_two(input: &str) -> u64 {
-    0
+fn part_two(input: &str) -> i32 {
+    let grid = parse(input);
+    let trailheads: Vec<(i32, i32)> = grid
+        .iter()
+        .enumerate()
+        .flat_map(|(y, row)| {
+            row.iter()
+                .enumerate()
+                .filter_map(move |(x, &height)| (height == 0).then_some((x as i32, y as i32)))
+        })
+        .collect();
+    trailheads
+        .iter()
+        .map(|start| hike_to_9(&grid, *start, false))
+        .sum()
 }
 
 fn part_one(input: &str) -> i32 {
@@ -61,7 +76,7 @@ fn part_one(input: &str) -> i32 {
         .collect();
     trailheads
         .iter()
-        .map(|start| hike_to_9(&grid, *start))
+        .map(|start| hike_to_9(&grid, *start, true))
         .sum()
 }
 fn main() {
@@ -79,9 +94,8 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(part_one(INPUT_TEST), 36);
-        // assert_eq!(part_one(INPUT), 6471961544878);
+        assert_eq!(part_one(INPUT), 531);
 
-        // assert_eq!(part_two(INPUT_TEST), 2858);
-        // assert_eq!(part_two(INPUT), 6511178035564);
+        assert_eq!(part_two(INPUT), 1210);
     }
 }
