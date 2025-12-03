@@ -4,21 +4,29 @@ enum Rotation {
     Left,
     Right,
 }
-fn rotate(position: usize, rotation: &Rotation, value: usize) -> usize {
+// -> new_position, clicks
+fn rotate(position: usize, rotation: &Rotation, value: usize) -> (usize, usize) {
     let val = value % 100;
+    let clicks = value / 100;
     match rotation {
         Rotation::Left => {
             if val > position {
-                100 - (val - position)
+                if position == 0 {
+                    (100 - (val - position), clicks)
+                } else {
+                    (100 - (val - position), clicks + 1)
+                }
+            } else if val == position {
+                (position - val, clicks + 1)
             } else {
-                position - val
+                (position - val, clicks)
             }
         }
         Rotation::Right => {
             if val + position >= 100 {
-                val + position - 100
+                (val + position - 100, clicks + 1)
             } else {
-                val + position
+                (val + position, clicks)
             }
         }
     }
@@ -40,7 +48,15 @@ fn parse(input: &str) -> Vec<(Rotation, usize)> {
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    let mut position = 50;
+    parse(input)
+        .iter()
+        .map(|(rotation, value)| {
+            let (new_position, clicks) = rotate(position, rotation, *value);
+            position = new_position;
+            clicks
+        })
+        .sum()
 }
 
 fn part_one(input: &str) -> usize {
@@ -48,7 +64,7 @@ fn part_one(input: &str) -> usize {
     parse(input)
         .iter()
         .map(|(rotation, value)| {
-            position = rotate(position, rotation, *value);
+            (position, _) = rotate(position, rotation, *value);
             position
         })
         .filter(|x| *x == 0)
@@ -56,7 +72,7 @@ fn part_one(input: &str) -> usize {
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
-    // println!("2: {}", part_two(INPUT));
+    println!("2: {}", part_two(INPUT));
 }
 
 // test
@@ -71,7 +87,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 3);
         assert_eq!(part_one(INPUT), 1074);
 
-        // assert_eq!(part_two(INPUT_TEST), 6);
-        // assert_eq!(part_two(INPUT), 24869388);
+        assert_eq!(part_two(INPUT_TEST), 6);
+        assert_eq!(part_two(INPUT), 6254);
     }
 }
