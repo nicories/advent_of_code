@@ -8,19 +8,40 @@ fn id_is_invalid(id: usize) -> bool {
     left == right
 }
 
+fn id_is_invalid_part2(id: usize) -> bool {
+    let id_str = id.to_string();
+
+    for chunk_size in 1..=id_str.len() / 2 {
+        let mut chunks: Vec<String> = id_str
+            .chars()
+            .collect::<Vec<_>>()
+            .chunks(chunk_size)
+            .map(|c| c.iter().collect())
+            .collect();
+        chunks.dedup();
+        if chunks.len() == 1 {
+            return true;
+        }
+    }
+    false
+}
+
 fn parse(input: &str) -> Vec<Vec<usize>> {
     input
         .split(',')
         .map(|line| {
             let (start, end) = line.split_once('-').unwrap();
-            dbg!(start, end);
             RangeInclusive::new(start.parse().unwrap(), end.parse().unwrap()).collect()
         })
         .collect()
 }
 
 fn part_two(input: &str) -> usize {
-    0
+    parse(input)
+        .iter()
+        .flatten()
+        .filter(|x| id_is_invalid_part2(**x))
+        .sum()
 }
 
 fn part_one(input: &str) -> usize {
@@ -32,7 +53,7 @@ fn part_one(input: &str) -> usize {
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
-    // println!("2: {}", part_two(INPUT));
+    println!("2: {}", part_two(INPUT));
 }
 
 // test
@@ -47,7 +68,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 1227775554);
         assert_eq!(part_one(INPUT), 64215794229);
 
-        // assert_eq!(part_two(INPUT_TEST), 6);
-        // assert_eq!(part_two(INPUT), 6254);
+        assert_eq!(part_two(INPUT_TEST), 4174379265);
+        assert_eq!(part_two(INPUT), 85513235135);
     }
 }
