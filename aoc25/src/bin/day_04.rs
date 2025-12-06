@@ -20,12 +20,8 @@ fn parse(input: &str) -> Grid {
         .collect()
 }
 
-fn part_two(input: &str) -> u64 {
-    0
-}
-
-fn part_one(input: &str) -> u64 {
-    let grid = parse(input);
+fn get_accessible_papers(grid: &Grid) -> Vec<(usize, usize)> {
+    let mut coords = vec![];
     let search_offsets = vec![
         (-1, -1),
         (-1, 0),
@@ -36,7 +32,6 @@ fn part_one(input: &str) -> u64 {
         (1, 0),
         (1, 1),
     ];
-    let mut forklift_acess = 0;
     for y in 0..grid.len() as i32 {
         for x in 0..grid[0].len() as i32 {
             if !matches!(grid[y as usize][x as usize], Tile::Paper) {
@@ -58,11 +53,32 @@ fn part_one(input: &str) -> u64 {
                 })
                 .count();
             if paper_adjacents < 4 {
-                forklift_acess += 1;
+                coords.push((x as usize, y as usize));
             }
         }
     }
-    forklift_acess
+    coords
+}
+
+fn part_two(input: &str) -> usize {
+    let mut grid = parse(input);
+    let mut removed = 0;
+    loop {
+        let coords = get_accessible_papers(&grid);
+        if coords.len() == 0 {
+            break;
+        }
+        for (x, y) in coords {
+            grid[y][x] = Tile::Nothing;
+            removed += 1;
+        }
+    }
+    removed
+}
+
+fn part_one(input: &str) -> usize {
+    let grid = parse(input);
+    get_accessible_papers(&grid).len()
 }
 fn main() {
     println!("1: {}", part_one(INPUT));
@@ -81,7 +97,7 @@ mod tests {
         assert_eq!(part_one(INPUT_TEST), 13);
         assert_eq!(part_one(INPUT), 1441);
 
-        // assert_eq!(part_two(INPUT_TEST), 3121910778619);
-        // assert_eq!(part_two(INPUT), 169077317650774);
+        assert_eq!(part_two(INPUT_TEST), 43);
+        assert_eq!(part_two(INPUT), 9050);
     }
 }
